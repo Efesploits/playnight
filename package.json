@@ -1,0 +1,56 @@
+{
+  "name": "playnight",
+  "productName": "Play Night",
+  "version": "1.0.0",
+  "description": "Play Night - Arkadaslarinla oyun gecesi. 101 Okey ve daha fazlasi.",
+  "author": "Play Night",
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "prepare-assets": "node scripts/make-icon.js && node scripts/copy-vendor.js",
+    "start": "npm run prepare-assets && electron .",
+    "dev": "electron .",
+    "dist": "npm run prepare-assets && electron-builder --win portable nsis --publish never",
+    "dist:portable": "npm run prepare-assets && electron-builder --win portable --publish never",
+    "test:engine": "node tests/engine.test.js"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "peerjs": "^1.5.4"
+  },
+  "build": {
+    "appId": "com.playnight.app",
+    "productName": "Play Night",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "vendor/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        { "target": "portable", "arch": ["x64"] },
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "portable": {
+      "artifactName": "PlayNight-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Play Night",
+      "artifactName": "PlayNight-${version}-setup.exe"
+    },
+    "compression": "maximum"
+  }
+}
