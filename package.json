@@ -12,6 +12,8 @@
     "dev": "electron .",
     "dist": "npm run prepare-assets && electron-builder --win portable nsis --publish never",
     "dist:portable": "npm run prepare-assets && electron-builder --win portable --publish never",
+    "publish": "node scripts/publish.js",
+    "release": "npm run dist && npm run publish",
     "test:engine": "node tests/engine.test.js"
   },
   "devDependencies": {

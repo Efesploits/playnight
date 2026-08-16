@@ -200,9 +200,14 @@ ipcMain.handle('shell:open', (_e, url) => {
 /* Güncelleme: GitHub Releases                                         */
 /* ------------------------------------------------------------------ */
 const UPDATE_REPO = 'Efesploits/playnight';
+/* Sürüm bilgisi bu dosyadan okunur; kurulum dosyaları `dist` dalında durur. */
+const UPDATE_BRANCH = 'main';
+const UPDATE_MANIFEST = `https://raw.githubusercontent.com/${UPDATE_REPO}/${UPDATE_BRANCH}/update.json`;
+
 /* İndirme yalnızca bu alan adlarından kabul edilir. */
 const ALLOWED_HOSTS = new Set([
   'api.github.com', 'github.com', 'codeload.github.com',
+  'raw.githubusercontent.com',
   'objects.githubusercontent.com', 'release-assets.githubusercontent.com',
 ]);
 
@@ -255,8 +260,50 @@ function cmpVersion(a, b) {
   return 0;
 }
 
+/**
+ * Sürüm kontrolü.
+ * Önce depodaki `update.json` manifestine bakılır — yayınlamak için yalnızca
+ * `git push` yeterli olsun diye. Manifest yoksa GitHub Releases'e düşülür.
+ */
 ipcMain.handle('update:check', async () => {
   const current = app.getVersion();
+  const viaManifest = await checkManifest(current);
+  if (viaManifest) return viaManifest;
+  return checkRelease(current);
+});
+
+async function checkManifest(current) {
+  try {
+    /* raw.githubusercontent 5 dakika önbellekliyor; tazesini iste */
+    const res = await httpsGet(`${UPDATE_MANIFEST}?t=${Date.now()}`, {
+      headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
+    });
+    if (res.statusCode !== 200) { res.resume(); return null; }
+
+    const data = JSON.parse(await readAll(res));
+    const latest = String(data.version || '').replace(/^v/i, '');
+    if (!latest) return null;
+
+    const pick = data.setup || data.portable || null;
+    return {
+      ok: true,
+      current,
+      latest,
+      available: cmpVersion(latest, current) > 0,
+      notes: String(data.notes || '').slice(0, 4000),
+      pageUrl: data.pageUrl || `https://github.com/${UPDATE_REPO}`,
+      publishedAt: data.publishedAt || null,
+      source: 'manifest',
+      asset: pick && pick.url && pick.name
+        ? { name: pick.name, url: pick.url, size: pick.size || 0 }
+        : null,
+    };
+  } catch {
+    return null;   // manifest okunamadı -> Releases'e düş
+  }
+}
+
+async function checkRelease(current) {
   try {
     const res = await httpsGet(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`);
     if (res.statusCode === 404) { res.resume(); return { ok: true, available: false, current, reason: 'no-release' }; }
@@ -279,12 +326,13 @@ ipcMain.handle('update:check', async () => {
       notes: String(data.body || '').slice(0, 4000),
       pageUrl: data.html_url,
       publishedAt: data.published_at,
+      source: 'release',
       asset: pick ? { name: pick.name, url: pick.browser_download_url, size: pick.size } : null,
     };
   } catch (err) {
     return { ok: false, current, reason: String((err && err.message) || err) };
   }
-});
+}
 
 let downloadAbort = null;
 

@@ -1,5 +1,6 @@
 node_modules/
 dist/
+# update.json bilerek takip edilir: uygulama sürüm bilgisini oradan okur
 build/icon.ico
 src/assets/logo.png
 vendor/
