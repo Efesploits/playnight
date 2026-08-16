@@ -144,14 +144,42 @@ WebGL çalışmazsa oyun düz arka planla sorunsuz oynanmaya devam eder.
 
 ## Güncelleme
 
-**Ayarlar → Güncelleme → GÜNCELLEMELERİ KONTROL ET** ile uygulama GitHub Releases'teki
-en son sürümü kontrol eder. Yeni sürüm varsa başlık çubuğunda altın rengi bir rozet çıkar;
-tıklayınca sürüm notları, dosya boyutu ve ilerleme çubuğuyla indirme başlar.
-İndirme bitince onayınla uygulama kapanır ve kurulum sihirbazı açılır.
+Uygulama sürüm bilgisini depodaki **`update.json`** dosyasından okur. Yayınlamak için
+GitHub Releases'e ya da API kimliğine gerek yoktur — **`git push` yetiyor**.
 
-Açılışta sessiz kontrol varsayılan olarak açıktır, aynı panelden kapatılabilir.
-İndirme yalnızca `api.github.com` ve GitHub'ın dosya sunucularından yapılır; başka
-alan adına yönlendirme reddedilir ve yalnızca uygulamanın kendi indirdiği dosya çalıştırılabilir.
+```
+main dalı   →  update.json      (sürüm, notlar, indirme adresleri — birkaç KB)
+dist dalı   →  PlayNight-setup.exe / PlayNight-portable.exe   (her yayında üstüne yazılır)
+```
+
+`dist` ayrı bir **öksüz dal**: her yayında sıfırdan yazıldığı için `main`'in geçmişi
+70 MB'lık binary'lerle şişmez. Dosya adları sürümsüzdür, yani indirme adresi hep aynı kalır.
+
+### Yeni sürüm yayınlamak
+
+```bash
+npm run release
+```
+
+`package.json`'daki sürümü yükselt, bu komutu çalıştır — derler, kurulum dosyalarını
+`dist` dalına iter, `update.json`'ı günceller ve `main`'e gönderir. Açık olan uygulamalar
+bunu görüp güncellemeyi teklif eder. (Sadece yayınlamak için: `npm run publish`)
+
+### Kullanıcı tarafı
+
+**Ayarlar → Güncelleme → GÜNCELLEMELERİ KONTROL ET.** Yeni sürüm varsa başlık çubuğunda
+altın rozet çıkar; tıklayınca sürüm notları, boyut, **hız ve kalan süre** ile indirme başlar.
+Bitince onayınla uygulama kapanır ve kurulum açılır. Açılışta sessiz kontrol varsayılan açıktır.
+
+**Kopan indirme kaldığı yerden devam eder** — yarım dosya saklanır ve bir sonraki denemede
+HTTP Range ile sürdürülür. Yavaş bağlantılar için önemli.
+
+### Güvenlik
+
+İndirme yalnızca `raw.githubusercontent.com`, `api.github.com` ve GitHub'ın dosya
+sunucularından yapılır; başka alan adına yönlendirme reddedilir, yönlendirme sayısı sınırlıdır
+ve **yalnızca uygulamanın kendi indirdiği klasördeki `.exe`** çalıştırılabilir.
+Manifest okunamazsa GitHub Releases API'sine düşülür.
 
 ## Masadaki kontroller
 

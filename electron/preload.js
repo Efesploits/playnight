@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('pn', {
     download: (asset) => ipcRenderer.invoke('update:download', asset),
     install: (filePath) => ipcRenderer.invoke('update:install', filePath),
     cancel: () => ipcRenderer.send('update:cancel'),
+    clearPartial: (name) => ipcRenderer.invoke('update:clearPartial', name),
     onProgress: (cb) => {
       const fn = (_e, p) => cb(p);
       ipcRenderer.on('update:progress', fn);

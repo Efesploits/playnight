@@ -80,8 +80,10 @@ try {
   const wt = (...args) =>
     execFileSync('git', args, { cwd: staging, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
-  /* öksüz dal: geçmiş biriktirmesin, her yayında sıfırdan */
-  wt('checkout', '--orphan', BIN_BRANCH);
+  /* Öksüz dal: geçmiş biriktirmesin, her yayında sıfırdan.
+     Yerel dal adı benzersiz olmalı — `dist` zaten varsa checkout reddeder.
+     Zaten `HEAD:dist` olarak zorla ittiğimiz için yerel ad önemsiz. */
+  wt('checkout', '--orphan', `publish-${Date.now()}`);
   wt('rm', '-rf', '--cached', '.');
   for (const f of fs.readdirSync(staging)) {
     if (f === '.git') continue;

@@ -336,6 +336,11 @@ async function checkRelease(current) {
 
 let downloadAbort = null;
 
+/**
+ * Kurulum dosyasını indirir.
+ * Yavaş bağlantılarda kopan indirme baştan başlamasın diye yarım kalan dosya
+ * korunur ve HTTP Range ile KALDIĞI YERDEN devam edilir.
+ */
 ipcMain.handle('update:download', async (_e, asset) => {
   if (!asset || !asset.url || !asset.name) return { ok: false, reason: 'Geçersiz dosya' };
   if (!/^[\w.\- ]+\.exe$/i.test(asset.name)) return { ok: false, reason: 'Geçersiz dosya adı' };
@@ -343,24 +348,50 @@ ipcMain.handle('update:download', async (_e, asset) => {
   const dir = path.join(os.tmpdir(), 'playnight-update');
   fs.mkdirSync(dir, { recursive: true });
   const target = path.join(dir, asset.name);
+  const part = target + '.part';
+
+  /* önceki denemeden kalan parça var mı? */
+  let have = 0;
+  try { have = fs.existsSync(part) ? fs.statSync(part).size : 0; } catch { have = 0; }
+  if (asset.size && have >= asset.size) have = 0;          // bozuk/eski parça
 
   try {
-    const res = await httpsGet(asset.url, { headers: { Accept: 'application/octet-stream' } });
-    if (res.statusCode !== 200) { res.resume(); return { ok: false, reason: 'İndirilemedi (' + res.statusCode + ')' }; }
+    const headers = { Accept: 'application/octet-stream' };
+    if (have > 0) headers.Range = `bytes=${have}-`;
 
-    const total = parseInt(res.headers['content-length'], 10) || asset.size || 0;
-    let got = 0;
-    const out = fs.createWriteStream(target);
-    downloadAbort = () => { try { res.destroy(); out.destroy(); } catch {} };
+    const res = await httpsGet(asset.url, { headers });
+
+    let append = false;
+    if (res.statusCode === 206) append = true;             // sunucu devamı verdi
+    else if (res.statusCode === 200) { append = false; have = 0; }  // baştan
+    else {
+      res.resume();
+      return { ok: false, reason: 'İndirilemedi (' + res.statusCode + ')' };
+    }
+
+    const remaining = parseInt(res.headers['content-length'], 10) || 0;
+    const total = append ? have + remaining : (remaining || asset.size || 0);
+    let got = have;
+    const startedAt = Date.now();
+
+    const out = fs.createWriteStream(part, append ? { flags: 'a' } : { flags: 'w' });
+    let aborted = false;
+    downloadAbort = () => { aborted = true; try { res.destroy(); out.end(); } catch {} };
 
     await new Promise((resolve, reject) => {
       let lastSent = 0;
       res.on('data', (chunk) => {
         got += chunk.length;
         const now = Date.now();
-        if (now - lastSent > 120 && mainWindow && !mainWindow.isDestroyed()) {
+        if (now - lastSent > 200 && mainWindow && !mainWindow.isDestroyed()) {
           lastSent = now;
-          mainWindow.webContents.send('update:progress', { got, total });
+          const secs = (now - startedAt) / 1000;
+          const bps = secs > 0 ? (got - have) / secs : 0;
+          mainWindow.webContents.send('update:progress', {
+            got, total, bps,
+            eta: bps > 0 && total > got ? Math.round((total - got) / bps) : null,
+            resumed: have > 0,
+          });
         }
       });
       res.pipe(out);
@@ -370,20 +401,34 @@ ipcMain.handle('update:download', async (_e, asset) => {
     });
 
     downloadAbort = null;
-    const stat = fs.statSync(target);
-    if (total && Math.abs(stat.size - total) > 1024) {
-      try { fs.unlinkSync(target); } catch {}
-      return { ok: false, reason: 'Dosya eksik indi' };
+    if (aborted) return { ok: false, reason: 'İndirme durduruldu', partial: true };
+
+    const size = fs.statSync(part).size;
+    if (total && Math.abs(size - total) > 1024) {
+      /* eksik indi: parçayı SAKLA, sonraki denemede devam edilsin */
+      return { ok: false, reason: 'Bağlantı koptu, dosya eksik indi', partial: true, got: size, total };
     }
+
+    fs.renameSync(part, target);
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update:progress', { got: stat.size, total: stat.size });
+      mainWindow.webContents.send('update:progress', { got: size, total: size, bps: 0, eta: 0 });
     }
-    return { ok: true, path: target, size: stat.size };
+    return { ok: true, path: target, size };
   } catch (err) {
     downloadAbort = null;
-    try { fs.unlinkSync(target); } catch {}
-    return { ok: false, reason: String((err && err.message) || err) };
+    /* parçayı silme — bir dahaki sefere kaldığı yerden devam etsin */
+    return { ok: false, reason: String((err && err.message) || err), partial: fs.existsSync(part) };
   }
+});
+
+/** Yarım kalmış indirmeyi at (kullanıcı baştan başlatmak isterse). */
+ipcMain.handle('update:clearPartial', async (_e, name) => {
+  try {
+    if (!/^[\w.\- ]+\.exe$/i.test(String(name || ''))) return false;
+    const p = path.join(os.tmpdir(), 'playnight-update', name + '.part');
+    if (fs.existsSync(p)) fs.unlinkSync(p);
+    return true;
+  } catch { return false; }
 });
 
 ipcMain.on('update:cancel', () => { if (downloadAbort) downloadAbort(); });

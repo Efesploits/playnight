@@ -11,6 +11,16 @@
   const S = { info: null, busy: false, offProgress: null };
 
   const fmtMB = (n) => (n / 1048576).toFixed(1) + ' MB';
+  const fmtSpeed = (bps) => (bps >= 1048576
+    ? (bps / 1048576).toFixed(1) + ' MB/sn'
+    : Math.max(0, Math.round(bps / 1024)) + ' KB/sn');
+  function fmtEta(s) {
+    if (s === null || s === undefined || !isFinite(s)) return '';
+    if (s < 60) return `~${Math.max(1, Math.round(s))} sn`;
+    const m = Math.round(s / 60);
+    if (m < 60) return `~${m} dk`;
+    return `~${Math.floor(m / 60)} sa ${m % 60} dk`;
+  }
 
   /* ------------------------------------------------------------ durum -- */
   function setStatus(text, kind) {
@@ -116,7 +126,12 @@
       S.offProgress = bridge.onProgress((p) => {
         const r = p.total ? p.got / p.total : 0;
         bar.style.width = Math.round(r * 100) + '%';
-        pct.textContent = `${Math.round(r * 100)}% · ${fmtMB(p.got)} / ${fmtMB(p.total || 0)}`;
+        const parts = [`${Math.round(r * 100)}%`, `${fmtMB(p.got)} / ${fmtMB(p.total || 0)}`];
+        if (p.bps) parts.push(fmtSpeed(p.bps));
+        const eta = fmtEta(p.eta);
+        if (eta) parts.push(eta);
+        if (p.resumed) parts.push('kaldığı yerden');
+        pct.textContent = parts.join(' · ');
       });
 
       const res = await bridge.download(info.asset);
@@ -124,8 +139,10 @@
 
       if (!res || !res.ok) {
         btns.forEach((b) => { b.disabled = false; });
-        btns[btns.length - 1].textContent = 'TEKRAR DENE';
-        pct.textContent = 'İndirilemedi: ' + ((res && res.reason) || 'bilinmeyen hata');
+        /* yarım kalan dosya duruyorsa bir sonraki deneme oradan devam eder */
+        btns[btns.length - 1].textContent = res && res.partial ? 'DEVAM ET' : 'TEKRAR DENE';
+        pct.textContent = ((res && res.reason) || 'Bilinmeyen hata')
+          + (res && res.partial ? ' — tekrar bastığında kaldığı yerden devam eder.' : '');
         pct.classList.add('err');
         return;
       }
