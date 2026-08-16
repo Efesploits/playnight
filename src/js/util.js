@@ -106,6 +106,9 @@
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  /* Türkçe büyük harf: 'i' -> 'İ' olmalı, düz toUpperCase 'I' üretir */
+  const upper = (s) => String(s === null || s === undefined ? '' : s).toLocaleUpperCase('tr-TR');
+
   const fmtTime = (ts) => {
     const d = new Date(ts);
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -126,5 +129,5 @@
   }
 
   w.U = { $, $$, el, clear, makeCode, isCode, randSeed, clamp, sleep, debounce, throttle,
-          copy, avatarStyle, initials, hashStr, escapeHtml, fmtTime, animateNumber, AVATAR_COLORS };
+          copy, avatarStyle, initials, hashStr, escapeHtml, upper, fmtTime, animateNumber, AVATAR_COLORS };
 })(window);

@@ -1,0 +1,357 @@
+/* =========================================================================
+   PLAY NIGHT — UNO MASASI
+   ========================================================================= */
+
+.uno-root {
+  position: absolute; inset: 0;
+  /* kart ölçüleri kökten gelir; hem kartlar hem de yığın kapsayıcıları kullanır */
+  --cw: 78px; --ch: 116px;
+  --pile-scale: 1.32;          /* ortadaki desteler daha iri durur */
+  display: grid; grid-template-rows: 56px 1fr auto;
+  background: radial-gradient(ellipse 90% 72% at 50% 40%, #101c44 0%, #060c22 48%, #02040e 100%);
+  transition: background .6s var(--ease-out);
+}
+/* aktif renge göre masa ışığı */
+.uno-root[data-color="0"] { background: radial-gradient(ellipse 90% 72% at 50% 40%, #3a1020 0%, #0a0a1e 50%, #02040e 100%); }
+.uno-root[data-color="1"] { background: radial-gradient(ellipse 90% 72% at 50% 40%, #3a2f0c 0%, #0d0c1c 50%, #02040e 100%); }
+.uno-root[data-color="2"] { background: radial-gradient(ellipse 90% 72% at 50% 40%, #0d3320 0%, #06121e 50%, #02040e 100%); }
+.uno-root[data-color="3"] { background: radial-gradient(ellipse 90% 72% at 50% 40%, #0e2352 0%, #060e28 50%, #02040e 100%); }
+
+/* ============================================================ ÜST BAR === */
+.uno-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 0 20px; border-bottom: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(6,12,30,.92), rgba(6,12,30,.4));
+  backdrop-filter: blur(10px); z-index: 6;
+}
+.ut-info { display: flex; align-items: center; gap: 16px; }
+.ut-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ut-item > span { font-family: var(--font-display); font-size: 9.5px; letter-spacing: .2em; color: var(--muted); }
+.ut-item > b { font-family: var(--font-display); font-size: 18px; line-height: 1; color: var(--cyan-300); }
+.ut-sep { width: 1px; height: 24px; background: var(--line); }
+.ut-right { display: flex; align-items: center; gap: 9px; }
+
+/* yön göstergesi */
+.dir-badge {
+  display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 99px;
+  border: 1px solid var(--line); background: rgba(12,24,54,.7);
+  font-family: var(--font-display); font-size: 11px; letter-spacing: .14em; color: var(--text-dim);
+}
+.dir-badge svg { width: 17px; height: 17px; fill: none; stroke: var(--cyan-400); stroke-width: 2; }
+.dir-badge.rev svg { transform: scaleX(-1); }
+.dir-badge.flash { animation: dirFlash .8s var(--ease-out); }
+@keyframes dirFlash {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(70,212,255,.8); }
+  40% { transform: scale(1.18); box-shadow: 0 0 0 14px rgba(70,212,255,0); }
+  100% { transform: scale(1); }
+}
+
+.uno-timer { position: relative; width: 40px; height: 40px; }
+.uno-timer svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.uno-timer circle { fill: none; stroke-width: 3.5; }
+.uno-timer .tm-bg { stroke: rgba(122,182,255,.14); }
+.uno-timer .tm-fg { stroke: var(--cyan-400); stroke-linecap: round; transition: stroke .3s; }
+.uno-timer.tm-low .tm-fg { stroke: var(--red); }
+.uno-timer .tm-num { position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--font-display); font-size: 14px; }
+
+/* ============================================================== SAHNE == */
+.uno-stage { position: relative; overflow: hidden; display: flex; flex-direction: column; }
+
+.uno-opps {
+  display: flex; justify-content: center; align-items: flex-start; gap: 12px;
+  padding: 16px 20px 0; flex-wrap: wrap;
+}
+.uopp {
+  position: relative; min-width: 130px; max-width: 180px;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 11px 14px; border-radius: var(--r-lg);
+  background: linear-gradient(150deg, rgba(14,28,64,.85), rgba(7,14,36,.85));
+  border: 1px solid var(--line-soft); backdrop-filter: blur(10px);
+  transition: .3s var(--ease-out);
+}
+.uopp.turn {
+  border-color: rgba(70,212,255,.6);
+  box-shadow: 0 0 0 1px rgba(70,212,255,.35), 0 0 40px -8px rgba(70,212,255,.6);
+  transform: translateY(4px);
+}
+.uopp.disconnected { opacity: .45; filter: grayscale(.6); }
+.uopp-head { display: flex; align-items: center; gap: 9px; width: 100%; }
+.uopp-av { width: 36px; height: 36px; border-radius: 11px; flex: none; display: grid; place-items: center;
+  font-family: var(--font-display); font-size: 15px; color: #fff; position: relative; }
+.uopp-av .bot-tag { position: absolute; bottom: -4px; right: -5px; font-size: 8px; padding: 1px 4px;
+  border-radius: 4px; background: var(--blue-700); color: #cfe4ff; font-family: var(--font-display); }
+.uopp-meta { min-width: 0; flex: 1; }
+.uopp-name { font-family: var(--font-display); font-size: 13.5px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+.uopp-score { font-size: 11px; color: var(--muted); }
+.uopp-score b { color: var(--gold); font-family: var(--font-display); }
+
+.uopp-cards { display: flex; gap: -6px; justify-content: center; height: 30px; }
+.uopp-cards .mini-back {
+  width: 19px; height: 28px; border-radius: 4px; margin-left: -7px;
+  background: linear-gradient(150deg, #2a2f45, #16192b);
+  border: 1.5px solid rgba(200,220,255,.28);
+  box-shadow: 0 2px 6px rgba(0,0,0,.6);
+}
+.uopp-cards .mini-back:first-child { margin-left: 0; }
+.uopp-count {
+  position: absolute; top: -8px; right: -8px; min-width: 24px; height: 24px; padding: 0 6px;
+  border-radius: 99px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--blue-500), var(--blue-700)); color: #fff;
+  font-family: var(--font-display); font-size: 12px;
+  box-shadow: 0 3px 12px -2px rgba(47,107,255,.8); border: 2px solid #0a1226;
+}
+.uopp.danger .uopp-count { background: linear-gradient(135deg, #ff5c70, #c01f36);
+  box-shadow: 0 3px 14px -2px rgba(255,77,99,.9); animation: netPulse 1s ease-in-out infinite; }
+
+.uno-flag {
+  position: absolute; bottom: -11px; left: 50%; translate: -50% 0;
+  font-family: var(--font-display); font-size: 11px; letter-spacing: .16em;
+  padding: 3px 12px; border-radius: 99px; white-space: nowrap;
+  background: linear-gradient(135deg, #ffd45c, #e09b00); color: #241a00;
+  box-shadow: 0 4px 16px -3px rgba(255,180,20,.8);
+}
+.catch-btn {
+  position: absolute; bottom: -14px; left: 50%; translate: -50% 0;
+  padding: 5px 14px; border-radius: 99px; white-space: nowrap;
+  font-family: var(--font-display); font-size: 11px; letter-spacing: .12em;
+  background: linear-gradient(135deg, #ff5c70, #c01f36); color: #fff;
+  box-shadow: 0 5px 18px -3px rgba(255,77,99,.9);
+  animation: catchPulse .7s var(--ease-in-out) infinite;
+}
+@keyframes catchPulse { 50% { transform: translate(-50%, -3px) scale(1.07); } }
+
+/* ------------------------------------------------------------ merkez -- */
+.uno-center {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 42px;
+  position: relative;
+}
+.uno-ring {
+  position: absolute; width: min(380px, 42vh); aspect-ratio: 1; border-radius: 50%;
+  border: 2px dashed rgba(122,182,255,.16);
+  animation: spinCW 26s linear infinite;
+}
+.uno-ring.rev { animation-direction: reverse; }
+
+.pile-slot { display: flex; flex-direction: column; align-items: center; gap: 14px; position: relative; z-index: 2; }
+.pile-label { font-family: var(--font-display); font-size: 10px; letter-spacing: .2em; color: var(--muted); }
+
+/* ortadaki iki yığın: kapsayıcıya açık ölçü verilir, yoksa mutlak konumlu
+   kartlar sıfır boyutlu bir kutunun içinde kayar */
+.uno-draw, .uno-discard {
+  position: relative;
+  width: calc(var(--cw) * var(--pile-scale));
+  height: calc(var(--ch) * var(--pile-scale));
+}
+.uno-draw .uno-card, .uno-discard .uno-card {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  --cw: calc(78px * var(--pile-scale));
+  --ch: calc(116px * var(--pile-scale));
+}
+.uno-draw { cursor: pointer; transition: transform .2s var(--ease-back); }
+.uno-draw .stack-holder { position: absolute; inset: 0; }
+/* arkada duran kağıt yığını hissi */
+.uno-draw .uno-card.back {
+  box-shadow: 5px 5px 0 -1px #191d31, 10px 10px 0 -2px #12162a,
+              0 16px 32px -10px rgba(0,0,0,.95);
+}
+.uno-draw.can:hover { transform: translateY(-8px) scale(1.05); }
+.uno-draw.can .uno-card.back {
+  box-shadow: 5px 5px 0 -1px #191d31, 10px 10px 0 -2px #12162a,
+              0 0 0 3px var(--cyan-400), 0 0 34px rgba(70,212,255,.65),
+              0 16px 32px -10px rgba(0,0,0,.95);
+}
+.uno-draw .draw-count {
+  position: absolute; bottom: -15px; left: 50%; translate: -50% 0; z-index: 4;
+  font-family: var(--font-display); font-size: 12px; padding: 3px 11px; border-radius: 99px;
+  background: rgba(6,12,30,.95); border: 1px solid var(--line); color: var(--cyan-300);
+}
+
+.uno-discard .uno-card { transform: rotate(-4deg); }
+.uno-discard .uno-card.fresh { animation: cardSlam .45s var(--ease-back) both; }
+@keyframes cardSlam {
+  0%   { transform: translateY(-120px) rotate(-30deg) scale(1.5); opacity: 0; }
+  70%  { transform: translateY(6px) rotate(2deg) scale(.97); opacity: 1; }
+  100% { transform: rotate(-4deg) scale(1); }
+}
+.color-orb {
+  position: absolute; inset: -26px; border-radius: 50%; pointer-events: none;
+  filter: blur(22px); opacity: .55; transition: background .5s;
+}
+.color-orb[data-c="0"] { background: radial-gradient(circle, #ff3d55, transparent 70%); }
+.color-orb[data-c="1"] { background: radial-gradient(circle, #ffcc2e, transparent 70%); }
+.color-orb[data-c="2"] { background: radial-gradient(circle, #2fd36b, transparent 70%); }
+.color-orb[data-c="3"] { background: radial-gradient(circle, #2f7bff, transparent 70%); }
+
+/* =============================================================== KART == */
+.uno-card {
+  --uc: #d8203a;
+  position: relative; width: var(--cw); height: var(--ch); flex: none;
+  border-radius: calc(var(--cw) * 0.13);
+  background: var(--uc);
+  box-shadow: inset 0 0 0 calc(var(--cw) * 0.055) #fff,
+              inset 0 0 0 calc(var(--cw) * 0.075) rgba(0,0,0,.14),
+              0 8px 20px -6px rgba(0,0,0,.85);
+  overflow: hidden; user-select: none;
+  font-family: var(--font-display);
+  transition: transform .18s var(--ease-back), box-shadow .18s, filter .18s;
+}
+.uno-card.c0 { --uc: #d8203a; }
+.uno-card.c1 { --uc: #e5a400; }
+.uno-card.c2 { --uc: #14a04a; }
+.uno-card.c3 { --uc: #1064d8; }
+.uno-card.cw { --uc: #16182a; }
+
+/* ortadaki beyaz elips */
+.uno-card .uc-oval {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  width: 118%; height: 56%; border-radius: 50%;
+  background: #fff; transform: translate(-50%, -50%) rotate(-22deg);
+  transform-origin: center;
+}
+.uno-card .uc-mid {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--uc); font-size: calc(var(--ch) * 0.42); line-height: 1;
+  text-shadow: 2px 2px 0 rgba(0,0,0,.16);
+  z-index: 2;
+}
+.uno-card .uc-mid svg { width: calc(var(--ch) * 0.34); height: calc(var(--ch) * 0.34);
+  fill: none; stroke: var(--uc); stroke-width: 2.6; }
+.uno-card .uc-corner {
+  position: absolute; color: #fff; font-size: calc(var(--ch) * 0.17); line-height: 1; z-index: 3;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.35);
+}
+.uno-card .uc-tl { top: calc(var(--ch) * 0.055); left: calc(var(--cw) * 0.10); }
+.uno-card .uc-br { bottom: calc(var(--ch) * 0.055); right: calc(var(--cw) * 0.10); transform: rotate(180deg); }
+.uno-card .uc-corner svg { width: calc(var(--ch) * 0.17); height: calc(var(--ch) * 0.17);
+  fill: none; stroke: #fff; stroke-width: 3; }
+
+/* joker: dört renkli çark */
+.uno-card.cw .uc-oval { background: #fff; }
+.uno-card.cw .uc-wheel {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  width: 52%; aspect-ratio: 1; border-radius: 50%; z-index: 2; overflow: hidden;
+  background: conic-gradient(#d8203a 0deg 90deg, #e5a400 90deg 180deg, #14a04a 180deg 270deg, #1064d8 270deg 360deg);
+  box-shadow: 0 0 0 3px #16182a;
+}
+.uno-card.cw .uc-mid { color: #16182a; font-size: calc(var(--ch) * 0.26); z-index: 3; }
+.uno-card.cw .uc-corner { color: #fff; }
+
+/* kart arkası */
+.uno-card.back {
+  --uc: #16182a;
+  background: radial-gradient(ellipse at 30% 25%, #2a3050, #14172a 70%);
+}
+.uno-card.back .uc-oval { background: #d8203a; }
+.uno-card.back .uc-mid { color: #fff; font-size: calc(var(--ch) * 0.2); letter-spacing: .06em;
+  transform: rotate(-22deg); text-shadow: 2px 2px 0 rgba(0,0,0,.35); }
+
+/* ============================================================== EL ===== */
+.uno-bottom {
+  display: grid; grid-template-columns: 190px 1fr 190px; gap: 14px; align-items: center;
+  padding: 10px 20px 16px; z-index: 6;
+  border-top: 1px solid var(--line-soft);
+  background: linear-gradient(0deg, rgba(4,9,24,.96), rgba(4,9,24,.55));
+  backdrop-filter: blur(10px);
+}
+.ume {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-lg);
+  background: linear-gradient(140deg, rgba(16,32,74,.7), rgba(7,14,36,.7));
+  border: 1px solid var(--line-soft); transition: .3s var(--ease-out);
+}
+.ume.turn { border-color: rgba(70,212,255,.55);
+  box-shadow: 0 0 0 1px rgba(70,212,255,.3), 0 0 36px -8px rgba(70,212,255,.6); }
+.ume-av { width: 38px; height: 38px; border-radius: 11px; flex: none; display: grid; place-items: center;
+  font-family: var(--font-display); font-size: 15px; color: #fff; }
+.ume-name { font-family: var(--font-display); font-size: 14px; }
+.ume-score { font-size: 11px; color: var(--muted); }
+.ume-score b { color: var(--gold); font-family: var(--font-display); font-size: 13px; }
+
+.hand-wrap { position: relative; min-height: 130px; display: flex; align-items: flex-end; justify-content: center; }
+.uno-hand { display: flex; justify-content: center; align-items: flex-end; padding-bottom: 6px; }
+.uno-hand .hand-card {
+  margin-left: var(--overlap, -26px); position: relative;
+  transition: transform .2s var(--ease-back), filter .2s, margin .2s;
+}
+.uno-hand .hand-card:first-child { margin-left: 0; }
+.uno-hand .hand-card .uno-card { cursor: default; }
+.uno-hand .hand-card.playable .uno-card { cursor: pointer; }
+.uno-hand .hand-card.playable:hover { transform: translateY(-24px) scale(1.06); z-index: 5; }
+.uno-hand .hand-card.playable:hover .uno-card {
+  box-shadow: inset 0 0 0 calc(var(--cw) * 0.055) #fff,
+              inset 0 0 0 calc(var(--cw) * 0.075) rgba(0,0,0,.14),
+              0 0 0 3px var(--cyan-400), 0 0 34px rgba(70,212,255,.7), 0 18px 34px -8px rgba(0,0,0,.9);
+}
+.uno-hand .hand-card.dim { filter: brightness(.58) saturate(.7); }
+.uno-hand .hand-card.dealt { animation: handDeal .45s var(--ease-back) both; }
+@keyframes handDeal { from { opacity: 0; transform: translateY(70px) rotate(14deg) scale(.7); } }
+.uno-hand .hand-card.drawn .uno-card { animation: drawGlow 1.4s var(--ease-out); }
+@keyframes drawGlow {
+  0% { box-shadow: 0 0 0 4px var(--gold), 0 0 40px rgba(255,201,60,.9); }
+  100% { box-shadow: inset 0 0 0 calc(var(--cw) * 0.055) #fff, 0 8px 20px -6px rgba(0,0,0,.85); }
+}
+
+.uno-acts { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.btn-uno {
+  padding: 14px 18px; border-radius: var(--r-lg);
+  background: linear-gradient(135deg, #ffd45c, #e08a00); color: #241a00;
+  font-family: var(--font-display); font-size: 19px; letter-spacing: .16em;
+  box-shadow: 0 0 0 1px rgba(255,201,60,.5), 0 10px 30px -8px rgba(255,180,20,.85);
+  transition: transform .16s var(--ease-back), box-shadow .2s, opacity .2s;
+}
+.btn-uno:hover:not(:disabled) { transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 0 0 2px rgba(255,220,120,.8), 0 16px 40px -8px rgba(255,180,20,1); }
+.btn-uno:disabled { opacity: .28; cursor: not-allowed; }
+.btn-uno.armed { animation: unoPulse .8s var(--ease-in-out) infinite; }
+@keyframes unoPulse {
+  0%,100% { box-shadow: 0 0 0 1px rgba(255,201,60,.5), 0 10px 30px -8px rgba(255,180,20,.85); }
+  50%     { box-shadow: 0 0 0 4px rgba(255,220,120,.9), 0 14px 46px -6px rgba(255,180,20,1); }
+}
+
+/* ------------------------------------------------------- renk seçici -- */
+.color-pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.color-pick button {
+  height: 96px; border-radius: var(--r-lg); position: relative; overflow: hidden;
+  font-family: var(--font-display); font-size: 15px; letter-spacing: .14em; color: #fff;
+  border: 2px solid rgba(255,255,255,.22);
+  transition: transform .16s var(--ease-back), box-shadow .2s;
+  text-shadow: 0 2px 6px rgba(0,0,0,.5);
+}
+.color-pick button:hover { transform: scale(1.05); border-color: #fff; }
+.color-pick .cp0 { background: linear-gradient(150deg, #ff4257, #a5081e); box-shadow: 0 10px 30px -8px rgba(216,32,58,.9); }
+.color-pick .cp1 { background: linear-gradient(150deg, #ffcc2e, #b57a00); box-shadow: 0 10px 30px -8px rgba(229,164,0,.9); }
+.color-pick .cp2 { background: linear-gradient(150deg, #34d46f, #0a7434); box-shadow: 0 10px 30px -8px rgba(20,160,74,.9); }
+.color-pick .cp3 { background: linear-gradient(150deg, #3d8bff, #0a469e); box-shadow: 0 10px 30px -8px rgba(16,100,216,.9); }
+
+/* --------------------------------------------------------- itiraz ----- */
+.chal-box { display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center; }
+.chal-bar { width: 100%; height: 6px; border-radius: 99px; background: rgba(122,182,255,.15); overflow: hidden; }
+.chal-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--red));
+  border-radius: 99px; transition: width .25s linear; }
+.chal-hand { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+
+/* ------------------------------------------------------------ afiş ---- */
+#unoBanner {
+  position: absolute; left: 50%; top: 34%; translate: -50% -50%; z-index: 30;
+  font-family: var(--font-display); font-size: clamp(30px, 5vw, 64px); letter-spacing: .16em;
+  color: #fff; text-shadow: 0 0 40px rgba(70,150,255,.9); opacity: 0; pointer-events: none;
+  white-space: nowrap; text-align: center;
+}
+#unoBanner.show { animation: bannerIn 1.5s var(--ease-out) both; }
+#unoBanner .sub { display: block; font-size: .34em; letter-spacing: .3em; color: var(--cyan-300); margin-top: 10px; }
+#unoBanner.gold { color: var(--gold); text-shadow: 0 0 46px rgba(255,201,60,.95); }
+
+/* ---------------------------------------------------------- dar ekran - */
+@media (max-height: 820px) {
+  .uno-root { --cw: 66px; --ch: 98px; --pile-scale: 1.22; }
+  .uno-draw .uno-card, .uno-discard .uno-card { --cw: calc(66px * var(--pile-scale)); --ch: calc(98px * var(--pile-scale)); }
+  .uopp { min-width: 116px; padding: 8px 11px; }
+  .hand-wrap { min-height: 108px; }
+  .uno-center { gap: 30px; }
+}
+@media (max-width: 1180px) {
+  .uno-bottom { grid-template-columns: 150px 1fr 150px; }
+  .uno-root { --cw: 64px; --ch: 95px; }
+  .uno-draw .uno-card, .uno-discard .uno-card { --cw: calc(64px * var(--pile-scale)); --ch: calc(95px * var(--pile-scale)); }
+}

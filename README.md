@@ -1,7 +1,7 @@
 # 🎴 Play Night
 
-Arkadaşlarınla oyun gecesi. Sinematik açılış, mavi-siyah tema ve iki oyun:
-tam kurallarıyla **101 Okey** ve Gartic Phone tarzı **Çiz Babacım**.
+Arkadaşlarınla oyun gecesi. Sinematik açılış, mavi-siyah tema ve üç oyun:
+tam kurallarıyla **101 Okey**, Gartic Phone tarzı **Çiz Babacım** ve **UNO**.
 Windows masaüstü uygulaması (Electron).
 
 **Port açmana gerek yok.** Bağlantı eşler arası (WebRTC) kurulur; modem/router ayarı,
@@ -39,9 +39,12 @@ Sadece taşınabilir sürüm için: `npm run dist:portable`
 ## Testler
 
 ```bash
-node tests/engine.test.js  # 141 okey kural testi
-node tests/ciz.test.js     # 124 çiz babacım testi
-node tests/sim.test.js 25  # botlar 25 tam okey maçı oynar, kural/taş bütünlüğü denetlenir
+node tests/engine.test.js     # 141 okey kural testi
+node tests/ciz.test.js        # 124 çiz babacım testi
+node tests/uno.test.js        # 135 uno kural testi
+node tests/update.test.js     # 23 güncelleme mantığı testi
+node tests/sim.test.js 20     # botlar 20 tam okey maçı oynar
+node tests/uno-sim.test.js 20 # botlar 20 tam uno maçı oynar
 ```
 
 ---
@@ -52,6 +55,7 @@ node tests/sim.test.js 25  # botlar 25 tam okey maçı oynar, kural/taş bütün
 |---|---|---|
 | **101 Okey** | 4 | Klasik yüzbir: gösterge, okey, 101 puanla açma, işleme, tam puanlama. |
 | **Çiz Babacım** | 2–8 | Yaz → çiz → tahmin et → çiz… Cümle elden ele geçtikçe tanınmaz olur, sonunda albüm açılır. |
+| **UNO** | 2–6 | 108 kart, renk/sayı eşleştir. Joker+4 blöfü ve itirazı, UNO deme cezası, 500 puana yarış. |
 
 ## Nasıl oynanır
 
@@ -84,6 +88,33 @@ kabul edince listeye eklenir. İkiniz de uygulamayı açık tuttuğunuz sürece 
 - Çizimler PNG değil **fırça darbesi** olarak saklanır: ağdan küçük geçer ve animasyonla oynatılabilir.
 
 Süreler oda kurucusunun ayarından değiştirilebilir (varsayılan: 45 sn yazma, 75 sn çizim, 40 sn tahmin).
+
+## UNO kuralları
+
+Resmi Mattel kuralları uygulandı ([unorules.com](https://www.unorules.com/)):
+
+- **108 kart:** her renkte bir 0, ikişer 1–9, ikişer Pas / Yön Değiştir / +2 (renk başına 25) + 4 Joker + 4 Joker+4.
+- Herkese **7 kart**, üstten bir kart açılır. Açılan kart Joker+4 ise desteye geri konur.
+- Renk, sayı ya da sembol eşleştirerek oyna. Oynayamıyorsan **bir kart çek**; çektiğin oynanabiliyorsa hemen oynayabilirsin.
+- **Yön Değiştir iki kişilik oyunda Pas gibi çalışır.**
+- **Joker+4:** kural olarak elinde masadaki renkten kart yokken oynanır — ama oyun bunu engellemez,
+  **blöf yapabilirsin**. Sonraki oyuncu itiraz ederse elin açılır:
+  blöfse **sen 4 çekersin**, itiraz haksızsa **o 6 çeker**.
+- Son ikinci kartını oynarken **UNO** demezsen ve yakalanırsan **2 kart** ceza.
+- Deste biterse atılanlar (üstteki hariç) karıştırılıp yeni deste olur.
+- **Puanlama:** sayı kartları yüzü kadar, Pas/Yön/+2 20, Jokerler 50. Kazanan rakiplerin
+  elinde kalanları alır; **500 puana** ilk ulaşan maçı kazanır (ayarlanabilir).
+
+## Güncelleme
+
+**Ayarlar → Güncelleme → GÜNCELLEMELERİ KONTROL ET** ile uygulama GitHub Releases'teki
+en son sürümü kontrol eder. Yeni sürüm varsa başlık çubuğunda altın rengi bir rozet çıkar;
+tıklayınca sürüm notları, dosya boyutu ve ilerleme çubuğuyla indirme başlar.
+İndirme bitince onayınla uygulama kapanır ve kurulum sihirbazı açılır.
+
+Açılışta sessiz kontrol varsayılan olarak açıktır, aynı panelden kapatılabilir.
+İndirme yalnızca `api.github.com` ve GitHub'ın dosya sunucularından yapılır; başka
+alan adına yönlendirme reddedilir ve yalnızca uygulamanın kendi indirdiği dosya çalıştırılabilir.
 
 ## Masadaki kontroller
 
@@ -176,6 +207,10 @@ src/js/ciz/engine.js   Çiz Babacım defter/tur mantığı (saf)
 src/js/ciz/draw.js     çizim tuvali, vektör biçimi, tekrar oynatma
 src/js/ciz/bot.js      çizim botları
 src/js/ciz/game.js     Çiz Babacım arayüzü ve albüm sunumu
+src/js/uno/engine.js   UNO kural motoru (saf)
+src/js/uno/bot.js      UNO botları (blöf ve itiraz kararları dahil)
+src/js/uno/table.js    UNO masası, renk seçici, itiraz penceresi
+src/js/update.js       sürüm kontrolü ve kurulum arayüzü
 src/js/net.js          WebRTC / PeerJS taşıma katmanı
 src/js/room.js         lobi + oyun oturumları (host otoritesi, iki oyunu da taşır)
 src/js/friends.js      arkadaş listesi, çevrimiçi durumu, davet

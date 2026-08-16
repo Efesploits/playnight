@@ -172,6 +172,43 @@ svg { fill: currentColor; }
 .tb-net.off  { color: var(--red); }
 @keyframes netPulse { 50% { opacity: .45; } }
 
+/* güncelleme rozeti */
+.tb-upd {
+  -webkit-app-region: no-drag; margin-right: 8px;
+  padding: 5px 13px; border-radius: 99px;
+  font-family: var(--font-display); font-size: 10.5px; letter-spacing: .14em;
+  background: linear-gradient(135deg, #ffd45c, #e08a00); color: #241a00;
+  box-shadow: 0 0 0 1px rgba(255,201,60,.4), 0 4px 16px -3px rgba(255,180,20,.7);
+  animation: updPulse 2.2s var(--ease-in-out) infinite;
+  transition: transform .16s var(--ease-back);
+}
+.tb-upd:hover { transform: translateY(-1px) scale(1.04); }
+@keyframes updPulse {
+  0%,100% { box-shadow: 0 0 0 1px rgba(255,201,60,.4), 0 4px 16px -3px rgba(255,180,20,.7); }
+  50%     { box-shadow: 0 0 0 3px rgba(255,220,120,.55), 0 6px 22px -3px rgba(255,180,20,.95); }
+}
+
+/* güncelleme kutusu */
+.upd-box { display: flex; flex-direction: column; gap: 14px; }
+.upd-vers { display: flex; align-items: center; justify-content: center; gap: 16px;
+  font-family: var(--font-display); font-size: 26px; }
+.upd-vers .uv-old { color: var(--muted); }
+.upd-vers .uv-arrow { color: var(--faint); font-size: 20px; }
+.upd-vers .uv-new { color: var(--gold); text-shadow: 0 0 24px rgba(255,201,60,.6); }
+.upd-file { text-align: center; font-size: 12.5px; color: var(--muted); font-family: var(--font-mono); }
+.upd-notes {
+  max-height: 240px; overflow-y: auto; padding: 14px 16px; border-radius: var(--r);
+  background: rgba(6,12,30,.6); border: 1px solid var(--line-soft);
+  font-size: 13px; line-height: 1.65; color: var(--text-dim);
+  white-space: pre-wrap; user-select: text;
+}
+.upd-bar { height: 8px; border-radius: 99px; background: rgba(122,182,255,.15); overflow: hidden; }
+.upd-bar i { display: block; height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--blue-500), var(--cyan-400));
+  border-radius: 99px; transition: width .2s linear; }
+.upd-pct { text-align: center; font-family: var(--font-mono); font-size: 12.5px; color: var(--cyan-300); }
+.upd-pct.err { color: var(--red); }
+
 .tb-controls { display: flex; -webkit-app-region: no-drag; }
 .tb-btn {
   width: 44px; height: var(--tb-h); display: grid; place-items: center; color: var(--text-dim);

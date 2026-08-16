@@ -87,6 +87,82 @@
   };
   w.Rules = Rules;
 
+  /* ================================================== UNO KURALLARI ==== */
+  const UNO_RULES_HTML = `
+<div class="rules-doc">
+  <h4>DESTE</h4>
+  <ul>
+    <li><b>108 kart:</b> 4 renk (kırmızı, sarı, yeşil, mavi), her renkte bir <b>0</b>, ikişer <b>1–9</b>,
+        ikişer <b>Pas</b>, <b>Yön Değiştir</b> ve <b>+2</b> — renk başına 25 kart.</li>
+    <li>Ayrıca <b>4 Joker</b> ve <b>4 Joker+4</b>.</li>
+    <li>Herkese <b>7 kart</b> dağıtılır, üstten bir kart açılır.</li>
+  </ul>
+
+  <h4>OYNAMA</h4>
+  <ul>
+    <li>Masadaki kartla <b>renk</b>, <b>sayı</b> ya da <b>sembol</b> eşleştirerek kart oyna.</li>
+    <li>Joker her zaman oynanır; oynayan sonraki rengi seçer.</li>
+    <li>Oynayacak kartın yoksa <b>bir kart çek</b>. Çektiğin kart oynanabiliyorsa hemen oynayabilirsin,
+        oynamak istemezsen pas geç.</li>
+    <li>Deste biterse atılan kartlar (en üstteki hariç) karıştırılıp yeni deste olur.</li>
+  </ul>
+
+  <h4>AKSİYON KARTLARI</h4>
+  <ul>
+    <li><b>Pas:</b> sonraki oyuncu sırasını kaybeder.</li>
+    <li><b>Yön Değiştir:</b> oyun yönü tersine döner. <b>İki kişilik oyunda Pas gibi çalışır.</b></li>
+    <li><b>+2:</b> sonraki oyuncu 2 kart çeker ve sırasını kaybeder.</li>
+    <li><b>Joker:</b> rengi sen seçersin.</li>
+    <li><b>Joker+4:</b> rengi seçersin, sonraki oyuncu 4 kart çeker ve sırasını kaybeder.</li>
+  </ul>
+
+  <h4>JOKER+4 VE İTİRAZ</h4>
+  <ul>
+    <li>Kural: Joker+4'ü <b>yalnızca elinde masadaki renkten kart yokken</b> oynamalısın.
+        (Başka renkten sayı kartların olması sorun değil.)</li>
+    <li>Ama oyun seni fiziksel olarak engellemez — <b>blöf yapabilirsin</b>. Uygulama seni uyarır, kararı sen verirsin.</li>
+    <li>Sonraki oyuncu <b>itiraz edebilir</b> ve elini görür:</li>
+    <li>Blöf yakalanırsa <b>oynayan 4 kart çeker</b>, sıra itiraz edene geçer.</li>
+    <li>İtiraz haksızsa <b>itiraz eden 4 yerine 6 kart çeker</b> ve sırasını kaybeder.</li>
+  </ul>
+
+  <h4>"UNO!" DEMEK</h4>
+  <ul>
+    <li>Sondan bir önceki kartını oynarken, yani <b>tek kartın kalacağı anda</b> UNO demelisin.</li>
+    <li>Unutur ve sıradaki oyuncu oynamadan önce yakalanırsan <b>2 kart ceza</b> çekersin.</li>
+    <li>Rakibin unuttuysa panelindeki <b>YAKALA!</b> düğmesine bas.</li>
+  </ul>
+
+  <h4>EL SONU VE PUANLAMA</h4>
+  <ul>
+    <li>Kartları biten oyuncu eli kazanır. Son kart <b>+2</b> ya da <b>Joker+4</b> ise sonraki oyuncu yine de çeker.</li>
+    <li>Kazanan, <b>rakiplerin elinde kalan tüm kartların puanını</b> alır.</li>
+  </ul>
+  <table>
+    <thead><tr><th>Kart</th><th>Puan</th></tr></thead>
+    <tbody>
+      <tr><td>Sayı kartları (0–9)</td><td>Üzerindeki sayı</td></tr>
+      <tr><td>Pas / Yön Değiştir / +2</td><td>20</td></tr>
+      <tr><td>Joker / Joker+4</td><td>50</td></tr>
+    </tbody>
+  </table>
+  <p class="muted small" style="margin-top:12px">
+    <b>500 puana</b> ilk ulaşan maçı kazanır (oda kurucusu bunu değiştirebilir).</p>
+
+  <h4>KISAYOLLAR</h4>
+  <ul>
+    <li><b>Boşluk</b> — kart çek / pas geç &nbsp;·&nbsp; <b>U</b> — UNO de</li>
+    <li>Oynanabilen kartlar parlar, oynanamayanlar soluklaşır.</li>
+  </ul>
+</div>`;
+
+  w.UnoRules = {
+    show() {
+      w.UI.modal({ title: 'UNO KURALLARI', wide: true, body: UNO_RULES_HTML,
+        actions: [{ label: 'ANLADIM', kind: 'btn-primary' }] });
+    },
+  };
+
   /* =========================================================== ROUTING == */
   let currentView = 'home';
 
@@ -216,10 +292,11 @@
   /* ======================================================== OYNA AKIŞI == */
   function playMenu(game) {
     const g = w.Room.GAMES[game] ? game : 'okey101';
-    const isCiz = g === 'ciz';
-    const soloText = isCiz
+    const soloText = g === 'ciz'
       ? 'Botlarla dene — onlar karalar, sen çizersin.'
-      : 'Üç bilgisayar rakibiyle anında masaya otur.';
+      : g === 'uno'
+        ? 'Üç bot rakiple hemen başla.'
+        : 'Üç bilgisayar rakibiyle anında masaya otur.';
 
     const body = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } }, [
       bigChoice('🤖', 'BOTLARLA HEMEN OYNA', soloText, () => {
@@ -294,6 +371,7 @@
     /* ana sayfa */
     $('#ctaPlay').onclick = () => { w.SFX.play('click'); playMenu('okey101'); };
     $('#ctaCiz').onclick = () => { w.SFX.play('click'); playMenu('ciz'); };
+    $('#ctaUno').onclick = () => { w.SFX.play('click'); playMenu('uno'); };
     $('#ctaJoin').onclick = () => { w.SFX.play('click'); joinPrompt(); };
     $('#btnRules').onclick = () => { w.SFX.play('click'); Rules.show(); };
     $$('[data-play]').forEach((n) => {
@@ -353,6 +431,8 @@
     w.OkeyTable.onLeave = leaveGame;
     w.CizGame.onAction = (a) => w.Room.sendAction(a);
     w.CizGame.onLeave = leaveGame;
+    w.UnoTable.onAction = (a) => w.Room.sendAction(a);
+    w.UnoTable.onLeave = leaveGame;
 
     /* ilk kullanıcı etkileşiminde sesi başlat (tarayıcı politikası) */
     const kick = () => { w.SFX.resume(); if (w.Store.settings().music) w.SFX.startMusic(); document.removeEventListener('pointerdown', kick); };
@@ -372,6 +452,7 @@
     bindSettings();
     paintAbout();
     wireUI();
+    w.Update.wire();
     w.Room.wireNet();
     w.Friends.wire();
     w.OkeyTable.mount();
@@ -402,6 +483,7 @@
       w.UI.toast('Sunucuya bağlanılamadı. Botlarla oynayabilirsin.', 'warn', 6000);
     }
     w.Friends.render();
+    w.Update.autoCheck();
 
     /* çıkarken temizle */
     w.addEventListener('beforeunload', () => { try { w.Net.destroy(); } catch {} });

@@ -17,8 +17,15 @@
       profile: null,
       friends: [],
       requests: [],
-      settings: { sound: true, music: true, volume: 0.6, animations: 'full', skipIntro: false, turnSeconds: 30, iceServers: null },
-      stats: { okey101: { played: 0, won: 0, bestScore: null } },
+      settings: {
+        sound: true, music: true, volume: 0.6, animations: 'full',
+        skipIntro: false, turnSeconds: 30, iceServers: null, autoUpdate: true,
+      },
+      stats: {
+        okey101: { played: 0, won: 0, bestScore: null },
+        ciz: { played: 0, won: 0 },
+        uno: { played: 0, won: 0 },
+      },
     };
   }
 

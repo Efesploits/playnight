@@ -179,6 +179,25 @@
 .okey-art { display: flex; }
 .soon-art { font-size: 52px; color: var(--faint); }
 
+/* uno kartı: yelpaze halinde mini kartlar */
+.uno-art { position: relative; display: block; overflow: hidden; }
+.uno-mini {
+  position: absolute; left: 50%; top: 50%; width: 42px; height: 62px; border-radius: 7px;
+  display: grid; place-items: center; color: #fff;
+  font-family: var(--font-display); font-size: 20px;
+  box-shadow: inset 0 0 0 3px #fff, 0 6px 16px -5px rgba(0,0,0,.85);
+  animation: unoBob 3.6s var(--ease-in-out) infinite;
+}
+.uno-mini.m0 { background: #d8203a; transform: translate(-50%,-50%) rotate(-18deg) translateX(-52px); }
+.uno-mini.m1 { background: #e5a400; transform: translate(-50%,-50%) rotate(-6deg) translateX(-17px); animation-delay: .15s; }
+.uno-mini.m2 { background: #14a04a; transform: translate(-50%,-50%) rotate(6deg) translateX(17px); animation-delay: .3s; }
+.uno-mini.m3 { background: #16182a; transform: translate(-50%,-50%) rotate(18deg) translateX(52px); animation-delay: .45s; }
+.uno-mini.wild::after {
+  content: ''; width: 22px; height: 22px; border-radius: 50%;
+  background: conic-gradient(#d8203a 0deg 90deg, #e5a400 90deg 180deg, #14a04a 180deg 270deg, #1064d8 270deg 360deg);
+}
+@keyframes unoBob { 50% { margin-top: -8px; } }
+
 /* çiz babacım kartı: kağıt üstünde karalama */
 .ciz-art { position: relative; display: block; overflow: hidden; }
 .ciz-art .doodle { position: absolute; border: 3px solid; border-radius: 50%; opacity: .85; }

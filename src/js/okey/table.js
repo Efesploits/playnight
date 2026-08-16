@@ -538,7 +538,7 @@
       const grp = el('div', { class: 'md-group' });
       grp.appendChild(el('div', { class: 'md-owner' }, [
         el('i', { style: { background: w.U.avatarStyle(S.id, S.color) } }),
-        el('span', { text: seat === v.mySeat ? 'SEN' : S.name.toUpperCase() }),
+        el('span', { text: seat === v.mySeat ? 'SEN' : w.U.upper(S.name) }),
       ]));
       for (const m of S.melds) {
         const canAdd = canProcess && E.canAddToMeld(m, T.selected, T.ctx).ok;

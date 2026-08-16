@@ -8,11 +8,13 @@
   const { $, $$, el, clear } = w.U;
   const E = w.Okey101;
   const C = w.Ciz;
+  const N = w.Uno;
 
   /* Oyun kataloğu. `fixed` = masa hep tam dolu olmalı (boşlar bota döner). */
   const GAMES = {
     okey101: { key: 'okey101', name: '101 OKEY', view: 'okey', min: 4, max: 4, fixed: true, botFill: 4 },
     ciz:     { key: 'ciz',     name: 'ÇİZ BABACIM', view: 'ciz', min: 2, max: 8, fixed: false, botFill: 4 },
+    uno:     { key: 'uno',     name: 'UNO', view: 'uno', min: 2, max: 6, fixed: false, botFill: 4 },
   };
 
   const R = {
@@ -28,9 +30,11 @@
     chat: [],
     match: null,         // okey
     ciz: null,           // çiz babacım
+    uno: null,           // uno
     tickTimer: null,
     botTimer: null,
     cizBotTimers: [],
+    unoTimers: [],
   };
 
   const spec = () => GAMES[R.game] || GAMES.okey101;
@@ -40,6 +44,7 @@
 
   function defaultRules(game) {
     if (game === 'ciz') return Object.assign({}, C.DEFAULT_RULES);
+    if (game === 'uno') return Object.assign({}, N.DEFAULT_RULES, { turnSeconds: w.Store.settings().turnSeconds || 30 });
     return Object.assign({}, E.DEFAULT_RULES, { turnSeconds: w.Store.settings().turnSeconds || 30 });
   }
 
@@ -121,7 +126,14 @@
     clear(box);
     const r = R.rules || defaultRules(R.game);
 
-    const rows = R.game === 'ciz' ? [
+    const rows = R.game === 'uno' ? [
+      ['Oyuncu', `${spec().min}–${spec().max} kişi`, '108 kartlık klasik deste'],
+      ['Hedef puan', `${r.targetScore}`, 'Bu puana ulaşan maçı kazanır'],
+      ['Başlangıç eli', `${r.handSize} kart`, 'Herkese dağıtılan kart sayısı'],
+      ['Tur süresi', r.turnSeconds ? `${r.turnSeconds} sn` : 'Sınırsız', 'Süre dolarsa kart çekilir'],
+      ['Joker+4 itirazı', r.challengeEnabled ? 'Açık' : 'Kapalı', 'Blöfse oynayan 4, haksızsa itiraz eden 6 çeker'],
+      ['UNO cezası', `${r.unoPenalty} kart`, 'UNO demeyi unutup yakalanırsan'],
+    ] : R.game === 'ciz' ? [
       ['Oyuncu', `${spec().min}–${spec().max} kişi`, 'Ne kadar kalabalık, o kadar komik'],
       ['Cümle süresi', `${r.writeSeconds} sn`, 'İlk turda yazma süresi'],
       ['Çizim süresi', `${r.drawSeconds} sn`, 'Çizim turlarında verilen süre'],
@@ -143,7 +155,13 @@
     }
 
     if (!R.isHost) return;
-    if (R.game === 'ciz') {
+    if (R.game === 'uno') {
+      box.appendChild(hostSelect('Hedef puan', [100, 200, 300, 500], r.targetScore,
+        (v) => `${v} puan`, (v) => { R.rules.targetScore = v; }));
+      box.appendChild(hostSelect('Tur süresi', [0, 20, 30, 45], r.turnSeconds,
+        (v) => (v ? `${v} saniye` : 'Sınırsız'),
+        (v) => { R.rules.turnSeconds = v; w.Store.setSetting('turnSeconds', v); }));
+    } else if (R.game === 'ciz') {
       box.appendChild(hostSelect('Çizim süresi', [45, 60, 75, 100, 130], r.drawSeconds,
         (v) => `${v} saniye`, (v) => { R.rules.drawSeconds = v; }));
       box.appendChild(hostSelect('Tahmin süresi', [20, 30, 40, 55], r.guessSeconds,
@@ -222,6 +240,7 @@
     R.chat = [];
     R.match = null;
     R.ciz = null;
+    R.uno = null;
 
     if (!localOnly) {
       w.UI.netStatus('busy', 'Oda açılıyor');
@@ -254,7 +273,7 @@
       return false;
     }
     R.mode = 'lobby'; R.isHost = false; R.local = false; R.code = c;
-    R.match = null; R.ciz = null;
+    R.match = null; R.ciz = null; R.uno = null;
     w.UI.netStatus('on', 'Odada · ' + c);
     w.App.go('lobby');
     w.SFX.play('join');
@@ -269,9 +288,10 @@
       w.Net.leaveRoom();
     }
     R.mode = 'idle'; R.isHost = false; R.local = false; R.code = null;
-    R.players = []; R.match = null; R.ciz = null; R.chat = [];
+    R.players = []; R.match = null; R.ciz = null; R.uno = null; R.chat = [];
     w.OkeyTable.reset();
     w.CizGame.reset();
+    w.UnoTable.reset();
     w.UI.closeModal();
     w.UI.netStatus(w.Net.ready ? 'on' : 'off', w.Net.ready ? 'Çevrimiçi' : 'Çevrimdışı');
     w.App.go(toLobby ? 'games' : 'home');
@@ -364,6 +384,7 @@
     if (!R.local) w.Net.broadcast({ t: 'start', game: R.game, players: R.players });
 
     if (R.game === 'ciz') cizStart();
+    else if (R.game === 'uno') unoStart();
     else okeyStart();
   }
 
@@ -684,10 +705,277 @@
     });
   }
 
+  /* ========================================================= UNO ======= */
+  function unoStart() {
+    R.uno = N.createGame(
+      R.players.map((p) => ({ id: p.id, name: p.name, color: p.color, isBot: p.isBot })),
+      R.rules
+    );
+    w.App.go('uno');
+    w.UnoTable.mount();
+    unoBeginRound();
+  }
+
+  function unoBeginRound() {
+    N.startRound(R.uno, w.U.randSeed());
+    unoPush();
+    w.UnoTable.banner(`${R.uno.round.no}. EL`, 'BAŞLADI');
+    startUnoTimer();
+    scheduleUnoBot();
+  }
+
+  function unoPush() {
+    if (!R.uno || !R.uno.round) return;
+    w.UnoTable.render(N.viewFor(R.uno, R.mySeat));
+    if (R.local) return;
+    R.players.forEach((p, seat) => {
+      if (!p || p.isBot || p.id === me().id) return;
+      w.Net.toPlayer(p.id, { t: 'game', game: 'uno', view: N.viewFor(R.uno, seat) });
+    });
+  }
+
+  function unoEvent(ev) {
+    w.UnoTable.playEvent(ev);
+    if (!R.local) w.Net.broadcast({ t: 'event', game: 'uno', ev });
+  }
+
+  const unoName = (seat) => (R.players[seat] ? R.players[seat].name : '?');
+
+  function unoAction(seat, a) {
+    if (!R.uno || !R.uno.round) return { ok: false, reason: 'Oyun yok' };
+    const rd = R.uno.round;
+    let res;
+
+    switch (a.t) {
+      case 'play':
+        res = N.playCard(R.uno, seat, a.card, a.color);
+        break;
+      case 'color':
+        res = N.chooseColor(R.uno, seat, a.color);
+        break;
+      case 'draw':
+        res = N.draw(R.uno, seat);
+        break;
+      case 'pass':
+        res = N.pass(R.uno, seat);
+        break;
+      case 'uno':
+        res = N.callUno(R.uno, seat);
+        if (res.ok) unoEvent({ t: 'uno', seat, name: unoName(seat) });
+        break;
+      case 'catchUno':
+        res = N.catchUno(R.uno, seat, a.target);
+        if (res.ok) unoEvent({ t: 'caught', seat: a.target, name: unoName(a.target), by: unoName(seat), penalty: res.penalty });
+        break;
+      case 'challenge': {
+        res = N.resolveChallenge(R.uno, seat, !!a.challenge);
+        if (res.ok) {
+          const o = res.outcome;
+          unoEvent({
+            t: 'challenge', challenged: o.challenged, bluff: !!o.bluff, drew: o.drew,
+            name: unoName(o.bluff ? o.by : o.target),
+          });
+        }
+        break;
+      }
+      default:
+        res = { ok: false, reason: 'Bilinmeyen hamle' };
+    }
+
+    if (!res || !res.ok) return res || { ok: false, reason: 'Hata' };
+
+    if (res.finished) { unoFinishRound(); return res; }
+
+    unoPush();
+    scheduleUnoBot();
+    return res;
+  }
+
+  const unoAutoSeat = (seat) => {
+    const p = R.players[seat];
+    return !!p && (p.isBot || p.connected === false);
+  };
+
+  function clearUnoTimers() {
+    for (const t of R.unoTimers) clearTimeout(t);
+    R.unoTimers = [];
+  }
+
+  /** Botların hamlesini ve "UNO yakalama" davranışını planla. */
+  function scheduleUnoBot() {
+    clearUnoTimers();
+    if (!R.isHost || !R.uno || !R.uno.round || R.uno.round.finished) return;
+    const rd = R.uno.round;
+    const level = 1;
+
+    /* UNO demeyi unutanı botlar yakalasın */
+    if (rd.unoPending) {
+      const victim = rd.unoPending.seat;
+      R.players.forEach((p, seat) => {
+        if (!p || seat === victim || !unoAutoSeat(seat)) return;
+        const delay = w.UnoBot.catchDelay(level);
+        if (delay === null) return;
+        R.unoTimers.push(setTimeout(() => {
+          if (!R.uno || !R.uno.round || !R.uno.round.unoPending) return;
+          if (R.uno.round.unoPending.seat !== victim) return;
+          unoAction(seat, { t: 'catchUno', target: victim });
+        }, delay));
+      });
+    }
+
+    /* Joker+4 itirazı bir bottaysa karar versin */
+    if (rd.phase === 'challenge' && rd.challenge && unoAutoSeat(rd.challenge.target)) {
+      const target = rd.challenge.target;
+      R.unoTimers.push(setTimeout(() => {
+        if (!R.uno || !R.uno.round || R.uno.round.phase !== 'challenge') return;
+        const view = N.viewFor(R.uno, target);
+        unoAction(target, { t: 'challenge', challenge: w.UnoBot.shouldChallenge(view, level) });
+      }, w.UnoBot.thinkMs(level, 'challenge')));
+      return;
+    }
+
+    /* renk seçimi bir bottaysa */
+    if (rd.phase === 'color' && rd.pendingWild && unoAutoSeat(rd.pendingWild.seat)) {
+      const seat = rd.pendingWild.seat;
+      R.unoTimers.push(setTimeout(() => {
+        if (!R.uno || !R.uno.round || R.uno.round.phase !== 'color') return;
+        unoAction(seat, { t: 'color', color: w.UnoBot.pickColor(R.uno.round.hands[seat], level) });
+      }, w.UnoBot.thinkMs(level, 'color')));
+      return;
+    }
+
+    if (rd.phase !== 'play' || !unoAutoSeat(rd.turn)) return;
+
+    const seat = rd.turn;
+    R.unoTimers.push(setTimeout(() => runUnoBotTurn(seat, level), w.UnoBot.thinkMs(level, 'play')));
+  }
+
+  function runUnoBotTurn(seat, level) {
+    if (!R.uno || !R.uno.round || R.uno.round.finished) return;
+    const rd = R.uno.round;
+    if (rd.phase !== 'play' || rd.turn !== seat) return;
+
+    const view = N.viewFor(R.uno, seat);
+    const choice = w.UnoBot.pickCard(view, level);
+
+    if (choice === null) {
+      const d = unoAction(seat, { t: 'draw' });
+      if (!d || !d.ok) return;
+      if (d.playable) {
+        /* çekilen kart oynanabiliyorsa çoğu zaman oynanır */
+        R.unoTimers.push(setTimeout(() => {
+          if (!R.uno || !R.uno.round || R.uno.round.turn !== seat || R.uno.round.phase !== 'play') return;
+          const v2 = N.viewFor(R.uno, seat);
+          const pick = w.UnoBot.pickCard(v2, level);
+          if (pick === null) { unoAction(seat, { t: 'pass' }); return; }
+          botPlay(seat, pick, level);
+        }, 700));
+      }
+      return;
+    }
+    botPlay(seat, choice, level);
+  }
+
+  function botPlay(seat, cardId, level) {
+    const rd = R.uno.round;
+    const card = N.cardById(cardId);
+    /* son ikinci kartı oynarken UNO de (acemi bot unutabilir) */
+    if (rd.hands[seat].length === 2 && !w.UnoBot.forgetsUno(level)) {
+      unoAction(seat, { t: 'uno' });
+    }
+    const color = N.isWild(card) ? w.UnoBot.pickColor(rd.hands[seat].filter((x) => x !== cardId), level) : undefined;
+    unoAction(seat, { t: 'play', card: cardId, color });
+  }
+
+  function startUnoTimer() {
+    stopTimers();
+    R.tickTimer = setInterval(unoTick, 600);
+  }
+
+  function unoTick() {
+    if (!R.isHost || !R.uno || !R.uno.round || R.uno.round.finished) return;
+    const rd = R.uno.round;
+
+    /* Güvenlik ağı: sıra bir bota (ya da düşmüş oyuncuya) ait olduğu hâlde
+       bekleyen zamanlayıcı yoksa oyun kilitlenmesin diye yeniden kur.
+       Süre sınırsızken bir oyuncunun tam sırasında düşmesi bu duruma yol açar. */
+    if (!R.unoTimers.length) {
+      const needsBot =
+        (rd.phase === 'play' && unoAutoSeat(rd.turn)) ||
+        (rd.phase === 'color' && rd.pendingWild && unoAutoSeat(rd.pendingWild.seat)) ||
+        (rd.phase === 'challenge' && rd.challenge && unoAutoSeat(rd.challenge.target));
+      if (needsBot) { scheduleUnoBot(); return; }
+    }
+
+    /* UNO yakalama penceresi kapandı mı */
+    if (N.expireUno(R.uno)) unoPush();
+
+    /* itiraz süresi doldu -> itiraz edilmemiş sayılır */
+    if (rd.phase === 'challenge' && rd.challenge && Date.now() > rd.challenge.until) {
+      const res = N.autoResolveChallenge(R.uno);
+      if (res && res.ok) {
+        unoEvent({ t: 'challenge', challenged: false, bluff: false, drew: res.outcome.drew, name: unoName(res.outcome.target) });
+        if (R.uno.round.finished) { unoFinishRound(); return; }
+        unoPush(); scheduleUnoBot();
+      }
+      return;
+    }
+
+    /* tur süresi doldu -> otomatik oyna */
+    if (rd.phase !== 'play' || !rd.turnEndsAt || Date.now() < rd.turnEndsAt) return;
+    if (unoAutoSeat(rd.turn)) return;   // botun kendi zamanlayıcısı var
+
+    const seat = rd.turn;
+    if (!rd.hasDrawn) {
+      const d = unoAction(seat, { t: 'draw' });
+      if (d && d.ok && d.playable) unoAction(seat, { t: 'pass' });
+    } else {
+      unoAction(seat, { t: 'pass' });
+    }
+    if (seat === R.mySeat) w.UI.toast('Süren doldu, kart çekildi', 'warn');
+  }
+
+  function unoFinishRound() {
+    const rd = R.uno.round;
+    const applied = N.applyResult(R.uno);
+    stopTimers();
+    unoPush();
+
+    const players = R.uno.players.map((p) => ({
+      seat: p.seat, name: p.name, score: p.score, roundsWon: p.roundsWon,
+      id: p.id, color: p.color,
+    }));
+
+    w.Store.bumpStat('uno', 'played', 1);
+    if (rd.result.winnerSeat === R.mySeat) w.Store.bumpStat('uno', 'won', 1);
+
+    if (!R.local) {
+      w.Net.broadcast({
+        t: 'result', game: 'uno', result: rd.result, seats: players,
+        over: applied.over, match: applied.over ? unoMatchPayload() : null,
+      });
+    }
+    if (applied.over) setTimeout(() => w.UnoTable.showMatchOver(unoMatchPayload(), R.mySeat), 800);
+    else setTimeout(() => w.UnoTable.showResult(rd.result, players, () => unoNextRound(), true), 800);
+  }
+
+  const unoMatchPayload = () => ({
+    winner: R.uno.winner,
+    players: R.uno.players.map((p) => ({ seat: p.seat, name: p.name, score: p.score, roundsWon: p.roundsWon })),
+  });
+
+  function unoNextRound() {
+    if (!R.isHost) return;
+    w.UI.closeModal();
+    if (!R.local) w.Net.broadcast({ t: 'nextRound' });
+    unoBeginRound();
+  }
+
   function stopTimers() {
     clearInterval(R.tickTimer); R.tickTimer = null;
     clearTimeout(R.botTimer); R.botTimer = null;
     clearCizBotTimers();
+    clearUnoTimers();
   }
 
   /* ================================================ AĞ OLAY BAĞLARI ==== */
@@ -702,6 +990,7 @@
         R.players[seat].connected = false;
         sysMsg(`${R.players[seat].name} bağlantısı koptu, yerine bot oynuyor`);
         if (R.game === 'ciz') { cizPush(); scheduleCizBots(); }
+        else if (R.game === 'uno') { unoPush(); scheduleUnoBot(); }
         else { okeyPush(); scheduleBot(); }
       } else {
         const name = R.players[seat].name;
@@ -725,7 +1014,8 @@
             conn.send(lobbyPayload());
             if (R.mode === 'game') {
               conn.send({ t: 'start', game: R.game, players: R.players });
-              const view = R.game === 'ciz' ? C.viewFor(R.ciz, old) : okeyView(old);
+              const view = R.game === 'ciz' ? C.viewFor(R.ciz, old)
+                : R.game === 'uno' ? N.viewFor(R.uno, old) : okeyView(old);
               w.Net.toPlayer(from, { t: 'game', game: R.game, view });
             }
             broadcastLobby(); renderLobby();
@@ -751,7 +1041,9 @@
         case 'action': {
           const seat = R.players.findIndex((x) => x && x.id === from);
           if (seat === -1) return;
-          const res = R.game === 'ciz' ? cizAction(seat, msg.action || {}) : okeyAction(seat, msg.action || {});
+          const res = R.game === 'ciz' ? cizAction(seat, msg.action || {})
+            : R.game === 'uno' ? unoAction(seat, msg.action || {})
+            : okeyAction(seat, msg.action || {});
           if (!res || !res.ok) w.Net.toPlayer(from, { t: 'error', msg: (res && res.reason) || 'Geçersiz hamle' });
           break;
         }
@@ -775,28 +1067,35 @@
             R.mySeat = R.players.findIndex((p) => p && p.id === me().id);
           }
           if (R.game === 'ciz') { w.App.go('ciz'); w.CizGame.mount(); }
+          else if (R.game === 'uno') { w.App.go('uno'); w.UnoTable.mount(); }
           else { w.App.go('okey'); w.OkeyTable.mount(); }
           break;
         case 'game': {
           R.mode = 'game';
-          const isCiz = msg.game === 'ciz';
-          R.game = isCiz ? 'ciz' : 'okey101';
+          R.game = GAMES[msg.game] ? msg.game : 'okey101';
           R.mySeat = msg.view.mySeat;
-          const target = isCiz ? 'ciz' : 'okey';
+          const target = GAMES[R.game].view;
+          const mountFn = R.game === 'ciz' ? w.CizGame.mount
+            : R.game === 'uno' ? w.UnoTable.mount : w.OkeyTable.mount;
           if (!document.querySelector(`.view[data-view="${target}"]`).classList.contains('active')) {
             w.App.go(target);
-            if (isCiz) w.CizGame.mount(); else w.OkeyTable.mount();
+            mountFn();
           }
-          if (isCiz) w.CizGame.render(msg.view); else w.OkeyTable.render(msg.view);
+          if (R.game === 'ciz') w.CizGame.render(msg.view);
+          else if (R.game === 'uno') w.UnoTable.render(msg.view);
+          else w.OkeyTable.render(msg.view);
           break;
         }
         case 'event':
-          if (msg.game !== 'ciz') w.OkeyTable.playEvent(msg.ev);
+          if (msg.game === 'uno') w.UnoTable.playEvent(msg.ev);
+          else if (msg.game !== 'ciz') w.OkeyTable.playEvent(msg.ev);
           break;
-        case 'result':
-          if (msg.over && msg.match) setTimeout(() => w.OkeyTable.showMatchOver(msg.match, R.mySeat), 700);
-          else setTimeout(() => w.OkeyTable.showResult(msg.result, msg.seats, null, false), 700);
+        case 'result': {
+          const tbl = msg.game === 'uno' ? w.UnoTable : w.OkeyTable;
+          if (msg.over && msg.match) setTimeout(() => tbl.showMatchOver(msg.match, R.mySeat), 800);
+          else setTimeout(() => tbl.showResult(msg.result, msg.seats, null, false), 800);
           break;
+        }
         case 'nextRound':
           w.UI.closeModal();
           break;
@@ -821,7 +1120,9 @@
   /* =================================================== DIŞ ARAYÜZ ===== */
   function sendAction(action) {
     if (R.isHost) {
-      const res = R.game === 'ciz' ? cizAction(R.mySeat, action) : okeyAction(R.mySeat, action);
+      const res = R.game === 'ciz' ? cizAction(R.mySeat, action)
+        : R.game === 'uno' ? unoAction(R.mySeat, action)
+        : okeyAction(R.mySeat, action);
       if (!res || !res.ok) w.UI.toast((res && res.reason) || 'Geçersiz hamle', 'err');
     } else {
       w.Net.toHost({ t: 'action', action });
