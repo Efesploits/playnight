@@ -7,6 +7,11 @@ Windows masaüstü uygulaması (Electron).
 **Port açmana gerek yok.** Bağlantı eşler arası (WebRTC) kurulur; modem/router ayarı,
 port yönlendirme, sabit IP gerekmez.
 
+### ⬇️ [Son sürümü indir](https://github.com/Efesploits/playnight/releases/latest)
+
+`PlayNight-setup.exe` kurulum yapar, `PlayNight-portable.exe` doğrudan çalışır.
+Windows SmartScreen uyarırsa **Ek bilgi → Yine de çalıştır** de (dosya imzalı değil).
+
 ---
 
 ## Çalıştırma
