@@ -1,4 +1,4 @@
-# Play Night v1.2.0
+# Play Night v1.2.1
 
 Arkadaşlarınla oyun gecesi. **Port açmana gerek yok** — bağlantı eşler arası (WebRTC) kurulur.
 
@@ -6,36 +6,26 @@ Arkadaşlarınla oyun gecesi. **Port açmana gerek yok** — bağlantı eşler a
 
 | Dosya | Ne zaman kullan |
 |---|---|
-| **PlayNight-1.2.0-setup.exe** | Kurulum sihirbazı. Masaüstü ve başlat menüsü kısayolu ekler. |
-| **PlayNight-1.2.0-portable.exe** | Kurulum istemez, çift tıkla açılır. Arkadaşına göndermek için ideal. |
+| **PlayNight-setup.exe** | Kurulum sihirbazı. Masaüstü ve başlat menüsü kısayolu ekler. |
+| **PlayNight-portable.exe** | Kurulum istemez, çift tıkla açılır. Arkadaşına göndermek için ideal. |
 
 > Windows SmartScreen uyarı verebilir: dosya imzalı değil.
 > **Ek bilgi → Yine de çalıştır** ile geçebilirsin.
 
 ## Yenilikler
 
-### 🕯️ Papaz Kaçtı — 2-6 kişi, **3B masa**
+### 🃏 Papaz Kaçtı: kartlarını istediğin gibi diz
 
-Karanlık bir oda, tepeden sarkan ve hafifçe sallanan tek bir ampul, altında yuvarlak keçe masa.
-Oyuncular masanın etrafında 3B kafalar olarak oturuyor.
+Rakip senin elinden **konuma göre** kart çekiyor — yani papazın elinde nerede durduğu
+gerçekten önemli. Artık kartlarını dilediğin sıraya koyabilirsin:
 
-- **Kafan senin profil renginde.** Aksesuarları **Ayarlar → Karakterin**'den canlı 3B önizlemeyle seç:
-  şapka / kasket / silindir / taç / fes, gözlük / güneş gözlüğü / maske, bıyık / sakal / papyon.
-- **Tell mekaniği:** papazı tutan acemi bot kartı elinde huzursuzca oynar ve öne iter.
-  Bazıları blöf yapar. Usta botlar gerçek papazı asla göstermez — üstelik seninkini okur.
-- Kart seçtiğinde kart yelpazeden çıkar, ortaya gelir, **bir an durur**, sonra çevrilir.
-  Papaz çıkarsa ampul patlar, masa sarsılır.
-- Oyuncular olan bitene konuşma balonlarıyla laf atar.
-- Tam kurallarıyla: 49 kart (3 papaz çıkarılmış), açılış çiftleri, sağdakinden çekme,
-  eli biten kurtulur, sonunda papaz kimde kalırsa o kaybeder. 5 elde en az papaz kalan kazanır.
+- **Sürükle bırak:** kartı tut, istediğin yere taşı. Diğerleri kenara kayıp yer açar.
+- **KARIŞTIR düğmesi** (ya da **K** tuşu): hepsini bir hamlede rastgele dizer.
+- Çektiğin yeni kart elinin rastgele bir yerine girer — istersen taşırsın.
+- Tek kısıt: **sıradaki oyuncu tam senden çekerken karıştıramazsın** (adil olsun diye).
 
-**Kart gizliliği:** Rakiplerin kartları hiçbir zaman istemciye gönderilmiyor — yalnızca kart *sayısı*
-gidiyor. 3B sahnede de sadece kapalı kart sırtları çiziliyor. Hem birim testiyle hem canlı oyunda doğrulandı.
-
-### Düzeltmeler
-- Papaz Kaçtı'da kart seçimi sunucuya iletilmiyordu — düzeltildi
-- Konuşma balonu ilk karede yanlış yerde beliriyordu
-- Hamle reddedilirse masa kilitlenmesin diye kurtarma süresi eklendi
+Bu yalnızca görsel bir düzenleme değil — sıralama gerçekten motora işleniyor, yani
+papazı saklamak artık işe yarayan bir strateji.
 
 ## Oyunlar
 
@@ -57,6 +47,7 @@ arkadaş listenden tek tıkla davet et.
 - Çok kısıtlı ağlarda yedek TURN sunucuları kamusal/ücretsizdir;
   **Ayarlar → Bağlantı**'dan kendi TURN sunucunu tanımlayabilirsin
 - Arkadaş listesinde çevrimiçi görünmek için iki tarafın da uygulamayı açık tutması gerekir
+- İndirme yavaşsa kopan indirme kaldığı yerden devam eder
 
 ## Test
 
@@ -64,7 +55,7 @@ arkadaş listenden tek tıkla davet et.
 node tests/engine.test.js       # 141 okey
 node tests/ciz.test.js          # 124 çiz babacım
 node tests/uno.test.js          # 135 uno
-node tests/papaz.test.js        # 113 papaz kaçtı
+node tests/papaz.test.js        # 130 papaz kaçtı
 node tests/update.test.js       #  23 güncelleme
 node tests/sim.test.js 20       # 20 tam okey maçı
 node tests/uno-sim.test.js 20   # 20 tam uno maçı

@@ -118,6 +118,9 @@ Kaynaklar: [Hürriyet](https://www.hurriyet.com.tr/aile/papaz-kacti-nasil-oynani
 - Kartlar herkese olabildiğince eşit dağıtılır; oyun başlamadan herkes elindeki çiftleri yere açar.
 - Eşleşme **sayıya** göredir, renk önemsizdir (iki 7 çifttir, maça 3 ile maça 9 değildir).
 - Sıran gelince **sağındaki oyuncunun elinden görmeden bir kart çekersin**. Eşleşirse o çift de yere gider.
+- **Kartlarını istediğin gibi dizebilirsin** — sürükle, ya da **KARIŞTIR** (`K`) ile rastgele diz.
+  Bu görsel bir süs değil: rakip senin elinden *konuma göre* çektiği için papazı saklamanın gerçek
+  yolu budur. Tek kısıt: sıradaki oyuncu tam senden çekerken karıştıramazsın.
 - Eli biten **kurtulur** ve masadan kalkar. Sonunda tek kalan — papaz ondadır — eli kaybeder.
 - Varsayılan **5 el**; sonunda **en az papaz kalan kazanır**.
 

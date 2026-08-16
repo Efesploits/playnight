@@ -263,6 +263,38 @@
     return { ok: true, draw: round.lastDraw, turn: round.turn };
   }
 
+  /**
+   * Oyuncu kendi elini yeniden dizer.
+   *
+   * Bu sadece görsel değildir: rakip senin elinden KONUMA göre kart çeker,
+   * dolayısıyla papazı saklamanın gerçek yolu kartları karıştırmaktır.
+   * Adil olsun diye, sıradaki oyuncu tam senden çekmek üzereyken karıştırılamaz.
+   *
+   * @param order eldeki kartların yeni sırası (aynı kartların permütasyonu)
+   */
+  function reorderHand(match, seat, order) {
+    const round = match.round;
+    if (!round || round.finished) return fail('El bitti');
+    if (!Array.isArray(order)) return fail('Geçersiz sıralama');
+
+    const hand = round.hands[seat];
+    if (order.length !== hand.length) return fail('Kart sayısı uyuşmuyor');
+
+    /* gerçekten aynı kartların bir permütasyonu mu? */
+    const a = hand.slice().sort((x, y) => x - y);
+    const b = order.slice().sort((x, y) => x - y);
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return fail('Elinizde olmayan kart');
+    }
+
+    if (sourceSeatFor(round, round.turn) === seat) {
+      return fail('Sıradaki oyuncu senden kart çekiyor, şimdi karıştıramazsın');
+    }
+
+    round.hands[seat] = order.slice();
+    return { ok: true };
+  }
+
   /** Tek oyuncu kaldıysa el biter; papaz ondadır. */
   function checkEnd(match) {
     const round = match.round;
@@ -331,6 +363,8 @@
       myPairs: round.pairs[seat].map((p) => p.slice()),
       drawFrom: from,
       drawCount: from >= 0 ? round.hands[from].length : 0,
+      /* biri senden çekmek üzereyse elini karıştıramazsın */
+      canReorder: !round.finished && sourceSeatFor(round, round.turn) !== seat,
       lastDraw: round.lastDraw
         ? {
           by: round.lastDraw.by, from: round.lastDraw.from,
@@ -357,7 +391,7 @@
     MIN_PLAYERS, MAX_PLAYERS, DEFAULT_RULES,
     DECK, buildDeck, cardById, PAPAZ_ID, isPapaz, cardLabel,
     extractPairs, findMatch, sourceSeatFor, alive,
-    createGame, startRound, drawCard, applyResult, viewFor, checkEnd,
+    createGame, startRound, drawCard, reorderHand, applyResult, viewFor, checkEnd,
     mulberry32, shuffle,
   };
 

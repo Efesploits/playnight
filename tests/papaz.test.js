@@ -140,6 +140,60 @@ const mk = (n) => Array.from({ length: n }, (_, i) => ({ id: 'p' + i, name: 'O' 
   ok(!r2.draw.matched || rd.hands[1].length === before1, 'eşleşmezse el büyür, eşleşirse küçülür');
 }
 
+/* ------------------------------------------- eli yeniden dizme ------- */
+{
+  const m = P.createGame(mk(4), { turnSeconds: 0 });
+  const rd = P.startRound(m, 71);
+  rd.hands = [
+    [card(MACA, 2), card(KUPA, 5), P.PAPAZ_ID, card(KARO, 9)],
+    [card(KUPA, 3)], [card(KARO, 4)], [card(SINEK, 6)],
+  ];
+  rd.pairs = [[], [], [], []]; rd.out = [false, false, false, false]; rd.outOrder = [];
+  rd.finished = false; rd.result = null; rd.phase = 'play';
+
+  /* sıra 2'de: 2 sağındaki 1'den çeker, yani 0 serbestçe karıştırabilir */
+  rd.turn = 2;
+  const orig = rd.hands[0].slice();
+  const shuffled = [orig[3], orig[1], orig[0], orig[2]];
+  const r = P.reorderHand(m, 0, shuffled);
+  ok(r.ok, 'kendi elini yeniden dizebilir', r.reason);
+  eq(rd.hands[0].join(','), shuffled.join(','), 'yeni sıra uygulandı');
+  eq(rd.hands[0].length, 4, 'kart sayısı değişmedi');
+
+  /* papaz gerçekten yer değiştirdi mi (saklamanın anlamı bu)
+     orig: [M2, K5, PAPAZ, Ka9] -> shuffled: [Ka9, K5, M2, PAPAZ] */
+  eq(orig.indexOf(P.PAPAZ_ID), 2, 'papaz önce 2. konumdaydı');
+  eq(rd.hands[0].indexOf(P.PAPAZ_ID), 3, 'papaz artık 3. konumda');
+
+  /* hile denemeleri */
+  ok(!P.reorderHand(m, 0, [orig[0], orig[1]]).ok, 'eksik kartla dizilemez');
+  ok(!P.reorderHand(m, 0, orig.concat([card(SINEK, 8)])).ok, 'fazladan kart eklenemez');
+  ok(!P.reorderHand(m, 0, [orig[0], orig[0], orig[1], orig[2]]).ok, 'kart çoğaltılamaz');
+  ok(!P.reorderHand(m, 0, 'abc').ok, 'dizi olmayan sıralama reddedilir');
+  eq(rd.hands[0].join(','), shuffled.join(','), 'reddedilen denemeler eli bozmadı');
+
+  /* sıra 1'de: 1 sağındaki 0'dan çekecek -> 0 artık karıştıramaz */
+  rd.turn = 1;
+  const blocked = P.reorderHand(m, 0, orig);
+  ok(!blocked.ok, 'senden kart çekilirken karıştırılamaz');
+  ok(/çekiyor/.test(blocked.reason), 'sebep açıklanıyor', blocked.reason);
+  eq(rd.hands[0].join(','), shuffled.join(','), 'engellenince el aynı kaldı');
+
+  /* görünümde bayrak doğru mu */
+  rd.turn = 2;
+  ok(P.viewFor(m, 0).canReorder, 'serbestken canReorder true');
+  rd.turn = 1;
+  ok(!P.viewFor(m, 0).canReorder, 'çekilirken canReorder false');
+
+  /* kendi sıramda karıştırabilmeliyim */
+  rd.turn = 0;
+  ok(P.reorderHand(m, 0, orig).ok, 'kendi sıramda karıştırabilirim');
+
+  /* el bitince karıştırılamaz */
+  rd.finished = true;
+  ok(!P.reorderHand(m, 0, shuffled).ok, 'el bitince karıştırılamaz');
+}
+
 /* --------------------------------------------- eli biten kurtulur ---- */
 {
   const m = P.createGame(mk(3), { turnSeconds: 0 });

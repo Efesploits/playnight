@@ -1075,6 +1075,13 @@
 
   function papazAction(seat, a) {
     if (!R.papaz || !R.papaz.round) return { ok: false, reason: 'Oyun yok' };
+
+    /* oyuncu kendi elini yeniden diziyor (papazı saklamanın gerçek yolu) */
+    if (a.t === 'reorder') {
+      const r = K.reorderHand(R.papaz, seat, a.order);
+      if (r.ok) papazPush();
+      return r;
+    }
     if (a.t !== 'draw') return { ok: false, reason: 'Bilinmeyen hamle' };
 
     const res = K.drawCard(R.papaz, seat, a.index);

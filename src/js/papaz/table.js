@@ -387,6 +387,126 @@
     if (draw.matched) setTimeout(() => w.SFX.play('meld'), 380);
   }
 
+  /* ------------------------------------------- eli yeniden dizme ------ */
+  /**
+   * Kendi kartlarını sürükleyerek istediğin sıraya koy.
+   * Bu sadece görsel değil: rakip senin elinden KONUMA göre kart çekiyor,
+   * yani papazı saklamanın gerçek yolu bu.
+   */
+  function onHandPointerDown(e) {
+    if (e.button !== undefined && e.button !== 0) return;
+    const v = T.view;
+    if (!v || v.finished) return;
+
+    const holder = e.target.closest('.hand-card');
+    const box = $('#papazHand');
+    if (!holder || !box) return;
+
+    if (!v.canReorder) {
+      w.UI.toast('Sıradaki oyuncu senden kart çekiyor, şimdi karıştıramazsın', 'warn');
+      return;
+    }
+
+    const order = [...box.children].map((n) => parseInt(n.dataset.id, 10));
+    const fromIdx = order.indexOf(parseInt(holder.dataset.id, 10));
+    if (fromIdx === -1) return;
+
+    const startX = e.clientX, startY = e.clientY;
+    const rect = holder.getBoundingClientRect();
+    let moved = false;
+    let curIdx = fromIdx;
+
+    const onMove = (ev) => {
+      if (!moved) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+        moved = true;
+        T.drag = { id: order[fromIdx] };
+        holder.classList.add('dragging');
+        box.classList.add('reordering');
+        T.dragGhost = cardNode(order[fromIdx]);
+        T.dragGhost.classList.add('hand-ghost');
+        T.dragGhost.style.width = rect.width + 'px';
+        T.dragGhost.style.height = rect.height + 'px';
+        document.body.appendChild(T.dragGhost);
+        w.SFX.play('pick');
+      }
+      T.dragGhost.style.left = ev.clientX + 'px';
+      T.dragGhost.style.top = ev.clientY + 'px';
+
+      /* imlecin hangi karta en yakın olduğuna göre araya sok */
+      const kids = [...box.children];
+      let target = kids.length - 1;
+      for (let i = 0; i < kids.length; i++) {
+        const r = kids[i].getBoundingClientRect();
+        if (ev.clientX < r.left + r.width / 2) { target = i; break; }
+      }
+      if (target !== curIdx) {
+        const node = kids[curIdx];
+        box.removeChild(node);
+        box.insertBefore(node, box.children[target] || null);
+        curIdx = target;
+        fanLayout([...box.children], 34, 1.4);
+        w.SFX.play('hover');
+      }
+    };
+
+    const onUp = () => {
+      w.removeEventListener('pointermove', onMove);
+      w.removeEventListener('pointerup', onUp);
+      if (T.dragGhost) { T.dragGhost.remove(); T.dragGhost = null; }
+      holder.classList.remove('dragging');
+      box.classList.remove('reordering');
+      T.drag = null;
+
+      if (!moved || curIdx === fromIdx) { fanLayout([...box.children], 34, 1.4); return; }
+
+      const newOrder = [...box.children].map((n) => parseInt(n.dataset.id, 10));
+      box.dataset.key = newOrder.join(',');     // sunucu yanıtı gelince yeniden çizilmesin
+      w.SFX.play('tile');
+      T.onAction({ t: 'reorder', order: newOrder });
+    };
+
+    w.addEventListener('pointermove', onMove);
+    w.addEventListener('pointerup', onUp);
+    e.preventDefault();
+  }
+
+  /** Elini rastgele karıştır — papazı saklamanın en hızlı yolu. */
+  function shuffleHand() {
+    const v = T.view;
+    if (!v || v.finished) return;
+    if (!v.canReorder) {
+      w.UI.toast('Sıradaki oyuncu senden kart çekiyor, şimdi karıştıramazsın', 'warn');
+      return;
+    }
+    if (v.myHand.length < 2) return;
+
+    const order = v.myHand.slice();
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    w.SFX.play('meld');
+    const box = $('#papazHand');
+    if (box) box.classList.add('shuffled');
+    setTimeout(() => { if (box) box.classList.remove('shuffled'); }, 450);
+    T.onAction({ t: 'reorder', order });
+  }
+
+  /** Karıştırma düğmesi ve ipucu metnini güncelle. */
+  function updateReorderUi() {
+    const v = T.view;
+    const btn = $('#papazShuffle');
+    if (!btn) return;
+    const can = !!(v && v.canReorder && !v.finished && v.myHand.length > 1);
+    btn.disabled = !can;
+    btn.title = can
+      ? 'Kartlarını rastgele karıştır (rakip konuma göre çekiyor)'
+      : 'Şu an karıştıramazsın';
+    const box = $('#papazHand');
+    if (box) box.classList.toggle('locked', !can);
+  }
+
   /** Bir koltuğun ekrandaki konumu (uçan kart animasyonları için). */
   function seatRect(seat) {
     if (T.view && seat === T.view.mySeat) {
@@ -450,9 +570,11 @@
   function renderHand() {
     const v = T.view;
     const box = $('#papazHand');
+    if (T.drag) return;                       // sürükleme sürerken karışmasın
+
     const key = v.myHand.join(',');
     const fresh = T.lastRound !== v.roundNo;
-    if (box.dataset.key === key && !fresh) return;
+    if (box.dataset.key === key && !fresh) { updateReorderUi(); return; }
     const isDeal = fresh;
     box.dataset.key = key;
     T.lastRound = v.roundNo;
@@ -460,7 +582,10 @@
     clear(box);
     const nodes = [];
     v.myHand.forEach((id, i) => {
-      const holder = el('div', { class: 'hand-card' + (isDeal ? ' dealt' : '') });
+      const holder = el('div', {
+        class: 'hand-card' + (isDeal ? ' dealt' : ''),
+        dataset: { id: String(id) },
+      });
       if (isDeal) holder.style.animationDelay = (i * 45) + 'ms';
       holder.appendChild(cardNode(id));
       box.appendChild(holder);
@@ -468,6 +593,7 @@
     });
     fanLayout(nodes, 34, 1.4);
     if (isDeal) for (let i = 0; i < Math.min(6, nodes.length); i++) w.SFX.play('deal', i);
+    updateReorderUi();
 
     /* yere açılan çiftler */
     const pb = $('#papazPairs');
@@ -629,13 +755,21 @@
     T.mounted = true;
     $('#papazLeave').onclick = () => T.onLeave(false);
     $('#papazRules').onclick = () => w.PapazRules.show();
+    $('#papazShuffle').onclick = shuffleHand;
+    $('#papazHand').addEventListener('pointerdown', onHandPointerDown);
+    document.addEventListener('keydown', (e) => {
+      if (!T.view || !document.querySelector('.view[data-view="papaz"]').classList.contains('active')) return;
+      if (!document.getElementById('modalHost').hidden) return;
+      if (e.key === 'k' || e.key === 'K') shuffleHand();
+    });
     ensureScene();
     w.addEventListener('resize', w.U.debounce(() => { if (T.scene) T.scene.resize(); }, 150));
   }
 
   function reset() {
     T.view = null; T.prev = null; T.lastDrawKey = ''; T.lastRound = -1; T.picking = false;
-    T.seatKey = '';
+    T.seatKey = ''; T.drag = null;
+    if (T.dragGhost) { T.dragGhost.remove(); T.dragGhost = null; }
     cancelAnimationFrame(T.timerRaf);
     cancelAnimationFrame(T.labelRaf);
     for (const [, b] of T.bubbles) { clearTimeout(b.timeout); b.node.remove(); }

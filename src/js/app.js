@@ -197,6 +197,16 @@
     <li>Maç varsayılan olarak <b>5 el</b> sürer. Sonunda <b>en az papaz kalan kazanır</b>.</li>
   </ul>
 
+  <h4>KARTLARINI DİZ — BU BİR STRATEJİ</h4>
+  <ul>
+    <li>Rakip senin elinden <b>konuma göre</b> kart çeker. Yani papazın elinde nerede durduğu
+        gerçekten önemlidir.</li>
+    <li>Kartlarını <b>sürükleyerek</b> istediğin sıraya koyabilirsin. <b>KARIŞTIR</b> düğmesi
+        (ya da <b>K</b> tuşu) hepsini rastgele dizer.</li>
+    <li>Çektiğin yeni kart elinin rastgele bir yerine girer — istersen taşı.</li>
+    <li>Tek kısıt: <b>sıradaki oyuncu tam senden çekerken karıştıramazsın</b>. Onun dışında serbest.</li>
+  </ul>
+
   <h4>MASADA NELER OLUYOR?</h4>
   <ul>
     <li>Botlar gerçek oyuncular gibi davranır: <b>papazı tutan acemi bot elinde huzursuzca oynar</b>

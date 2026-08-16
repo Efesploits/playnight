@@ -278,9 +278,27 @@
 .my-hand .hand-card {
   position: absolute; bottom: 6px; transform-origin: 50% 150%;
   transform: rotate(var(--rot)) translateY(var(--ty, 0px));
-  transition: transform .25s var(--ease-out);
+  transition: transform .25s var(--ease-out), left .22s var(--ease-out);
+  cursor: grab;
 }
+.my-hand.locked .hand-card { cursor: default; }
 .my-hand .hand-card:hover { transform: rotate(var(--rot)) translateY(calc(var(--ty, 0px) - 18px)) scale(1.05); z-index: 20; }
+
+/* --- kendi kartlarını yeniden dizme --- */
+.my-hand .hand-card.dragging { opacity: .25; }
+.my-hand.reordering .hand-card { transition: transform .18s var(--ease-out), left .18s var(--ease-out); }
+.my-hand.reordering .hand-card:hover { transform: rotate(var(--rot)) translateY(var(--ty, 0px)); }
+.hand-ghost {
+  position: fixed; z-index: 1400; pointer-events: none;
+  transform: translate(-50%, -50%) scale(1.12) rotate(4deg);
+  box-shadow: 0 22px 46px -10px rgba(0,0,0,.95), 0 0 0 2px #ffd25c, 0 0 32px rgba(255,201,60,.5);
+}
+.my-hand.shuffled .hand-card { animation: shuffleFlick .42s var(--ease-back); }
+@keyframes shuffleFlick {
+  0%   { transform: rotate(var(--rot)) translateY(var(--ty, 0px)); }
+  45%  { transform: rotate(calc(var(--rot) * 2.2)) translateY(calc(var(--ty, 0px) - 22px)) scale(1.04); }
+  100% { transform: rotate(var(--rot)) translateY(var(--ty, 0px)); }
+}
 .my-hand .hand-card.fresh { animation: cardIn .5s var(--ease-back) both; }
 @keyframes cardIn { from { opacity: 0; transform: rotate(var(--rot)) translateY(-90px) scale(1.3); } }
 .my-hand .hand-card.leaving { animation: cardOut .4s var(--ease-in-out) both; }
@@ -288,8 +306,11 @@
 .my-hand .hand-card.dealt { animation: dealFly .5s var(--ease-back) both; }
 @keyframes dealFly { from { opacity: 0; transform: translate(0, -260px) rotate(0deg) scale(.5); } }
 
-/* yere açılan çiftler */
-.my-pairs { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+/* sağ sütun: karıştır düğmesi + yere açılan çiftler */
+.my-side { display: flex; flex-direction: column; gap: 7px; align-items: stretch; }
+.my-side .btn { justify-content: center; }
+.my-side .btn svg { width: 14px; height: 14px; }
+.my-side .mp-label { text-align: right; }
 .mp-label { font-family: var(--font-display); font-size: 10px; letter-spacing: .18em; color: #79a893; }
 .mp-stack { display: flex; flex-wrap: wrap; gap: 3px; justify-content: flex-end; max-height: 76px; overflow: hidden; }
 .mp-pair { display: flex; }
