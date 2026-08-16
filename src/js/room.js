@@ -9,12 +9,14 @@
   const E = w.Okey101;
   const C = w.Ciz;
   const N = w.Uno;
+  const K = w.Papaz;
 
   /* Oyun kataloğu. `fixed` = masa hep tam dolu olmalı (boşlar bota döner). */
   const GAMES = {
     okey101: { key: 'okey101', name: '101 OKEY', view: 'okey', min: 4, max: 4, fixed: true, botFill: 4 },
     ciz:     { key: 'ciz',     name: 'ÇİZ BABACIM', view: 'ciz', min: 2, max: 8, fixed: false, botFill: 4 },
     uno:     { key: 'uno',     name: 'UNO', view: 'uno', min: 2, max: 6, fixed: false, botFill: 4 },
+    papaz:   { key: 'papaz',   name: 'PAPAZ KAÇTI', view: 'papaz', min: 2, max: 6, fixed: false, botFill: 4 },
   };
 
   const R = {
@@ -31,20 +33,46 @@
     match: null,         // okey
     ciz: null,           // çiz babacım
     uno: null,           // uno
+    papaz: null,         // papaz kaçtı
     tickTimer: null,
     botTimer: null,
     cizBotTimers: [],
     unoTimers: [],
+    papazTimers: [],
   };
 
   const spec = () => GAMES[R.game] || GAMES.okey101;
+
+  /** Oyunun arayüz modülü (mount / render / playEvent / showResult). */
+  function uiFor(game) {
+    if (game === 'ciz') return w.CizGame;
+    if (game === 'uno') return w.UnoTable;
+    if (game === 'papaz') return w.PapazTable;
+    return w.OkeyTable;
+  }
+  const gameUi = () => uiFor(R.game);
   const filled = () => R.players.filter(Boolean).length;
   const me = () => w.Store.profile();
-  const pub = () => ({ id: me().id, name: me().name, color: me().color, isBot: false, connected: true });
+  const pub = () => ({
+    id: me().id, name: me().name, color: me().color,
+    acc: me().acc || null, isBot: false, connected: true,
+  });
+
+  /* Botlara da rastgele ama sabit bir görünüm ver (aynı bot hep aynı görünsün) */
+  function botLook(id) {
+    const h = w.U.hashStr(id);
+    const A = w.Papaz3D ? w.Papaz3D.ACCESSORIES : { hat: ['yok'], face: ['yok'], hair: ['yok'] };
+    return {
+      hat: A.hat[h % A.hat.length],
+      face: A.face[(h >> 3) % A.face.length],
+      hair: A.hair[(h >> 6) % A.hair.length],
+    };
+  }
 
   function defaultRules(game) {
     if (game === 'ciz') return Object.assign({}, C.DEFAULT_RULES);
     if (game === 'uno') return Object.assign({}, N.DEFAULT_RULES, { turnSeconds: w.Store.settings().turnSeconds || 30 });
+    if (game === 'papaz') return Object.assign({}, K.DEFAULT_RULES);
     return Object.assign({}, E.DEFAULT_RULES, { turnSeconds: w.Store.settings().turnSeconds || 30 });
   }
 
@@ -52,7 +80,8 @@
   function makeBot(seat) {
     const used = new Set(R.players.filter(Boolean).map((p) => p.name));
     const name = BOT_NAMES.find((n) => !used.has(n)) || ('Bot' + (seat + 1));
-    return { id: 'bot-' + seat + '-' + w.U.makeCode(4), name, color: (3 + seat) % 10, isBot: true, connected: true };
+    const id = 'bot-' + seat + '-' + w.U.makeCode(4);
+    return { id, name, color: (3 + seat) % 10, acc: botLook(id), isBot: true, connected: true };
   }
 
   /* ====================================================== LOBİ ÇİZİMİ === */
@@ -126,7 +155,13 @@
     clear(box);
     const r = R.rules || defaultRules(R.game);
 
-    const rows = R.game === 'uno' ? [
+    const rows = R.game === 'papaz' ? [
+      ['Oyuncu', `${spec().min}–${spec().max} kişi`, '49 kart: 3 papaz çıkarılmış deste'],
+      ['El sayısı', `${r.rounds} el`, 'En az papaz kalan maçı kazanır'],
+      ['Tur süresi', r.turnSeconds ? `${r.turnSeconds} sn` : 'Sınırsız', 'Süre dolarsa rastgele kart çekilir'],
+      ['Çift eşleşmesi', 'Sayıya göre', 'Renk önemsiz: iki 7 çifttir'],
+      ['Papaz', 'Tek ve eşsiz', 'Eşi olmadığı için hep birinde kalır'],
+    ] : R.game === 'uno' ? [
       ['Oyuncu', `${spec().min}–${spec().max} kişi`, '108 kartlık klasik deste'],
       ['Hedef puan', `${r.targetScore}`, 'Bu puana ulaşan maçı kazanır'],
       ['Başlangıç eli', `${r.handSize} kart`, 'Herkese dağıtılan kart sayısı'],
@@ -155,7 +190,12 @@
     }
 
     if (!R.isHost) return;
-    if (R.game === 'uno') {
+    if (R.game === 'papaz') {
+      box.appendChild(hostSelect('El sayısı', [3, 5, 7, 10], r.rounds,
+        (v) => `${v} el`, (v) => { R.rules.rounds = v; }));
+      box.appendChild(hostSelect('Tur süresi', [0, 15, 25, 40], r.turnSeconds,
+        (v) => (v ? `${v} saniye` : 'Sınırsız'), (v) => { R.rules.turnSeconds = v; }));
+    } else if (R.game === 'uno') {
       box.appendChild(hostSelect('Hedef puan', [100, 200, 300, 500], r.targetScore,
         (v) => `${v} puan`, (v) => { R.rules.targetScore = v; }));
       box.appendChild(hostSelect('Tur süresi', [0, 20, 30, 45], r.turnSeconds,
@@ -241,6 +281,7 @@
     R.match = null;
     R.ciz = null;
     R.uno = null;
+    R.papaz = null;
 
     if (!localOnly) {
       w.UI.netStatus('busy', 'Oda açılıyor');
@@ -273,7 +314,7 @@
       return false;
     }
     R.mode = 'lobby'; R.isHost = false; R.local = false; R.code = c;
-    R.match = null; R.ciz = null; R.uno = null;
+    R.match = null; R.ciz = null; R.uno = null; R.papaz = null;
     w.UI.netStatus('on', 'Odada · ' + c);
     w.App.go('lobby');
     w.SFX.play('join');
@@ -288,10 +329,11 @@
       w.Net.leaveRoom();
     }
     R.mode = 'idle'; R.isHost = false; R.local = false; R.code = null;
-    R.players = []; R.match = null; R.ciz = null; R.uno = null; R.chat = [];
+    R.players = []; R.match = null; R.ciz = null; R.uno = null; R.papaz = null; R.chat = [];
     w.OkeyTable.reset();
     w.CizGame.reset();
     w.UnoTable.reset();
+    w.PapazTable.reset();
     w.UI.closeModal();
     w.UI.netStatus(w.Net.ready ? 'on' : 'off', w.Net.ready ? 'Çevrimiçi' : 'Çevrimdışı');
     w.App.go(toLobby ? 'games' : 'home');
@@ -344,7 +386,9 @@
     return {
       t: 'lobby',
       code: R.code, hostId: R.hostId, game: R.game,
-      players: R.players.map((p) => (p ? { id: p.id, name: p.name, color: p.color, isBot: p.isBot, connected: p.connected } : null)),
+      players: R.players.map((p) => (p
+        ? { id: p.id, name: p.name, color: p.color, acc: p.acc || null, isBot: p.isBot, connected: p.connected }
+        : null)),
       rules: R.rules,
       chat: R.chat.slice(-60),
       inGame: R.mode === 'game',
@@ -385,6 +429,7 @@
 
     if (R.game === 'ciz') cizStart();
     else if (R.game === 'uno') unoStart();
+    else if (R.game === 'papaz') papazStart();
     else okeyStart();
   }
 
@@ -971,11 +1016,184 @@
     unoBeginRound();
   }
 
+  /* ==================================================== PAPAZ KAÇTI ==== */
+  function papazStart() {
+    R.papaz = K.createGame(
+      R.players.map((p) => ({ id: p.id, name: p.name, color: p.color, acc: p.acc, isBot: p.isBot })),
+      R.rules
+    );
+    w.App.go('papaz');
+    w.PapazTable.mount();
+    papazBeginRound();
+  }
+
+  function papazBeginRound() {
+    K.startRound(R.papaz, w.U.randSeed());
+    papazPush();
+    w.PapazTable.banner(`${R.papaz.round.no}. EL`, 'ÇİFTLER AÇILDI');
+    startPapazTimer();
+    schedulePapazBot();
+  }
+
+  /** Botun elinde "öne ittiği" kart — masadaki tell. Yalnızca sıradaki görür. */
+  function papazTellFor(seat) {
+    const p = R.players[seat];
+    if (!p || !p.isBot) return null;
+    const level = seat % 3;
+    return w.PapazBot.tellIndex(R.papaz.round.hands[seat], seat, R.papaz.round.no, level);
+  }
+
+  function papazView(seat) {
+    const v = K.viewFor(R.papaz, seat);
+    /* sıradaki oyuncu, kart çekeceği kişinin tell'ini görebilir */
+    v.tell = v.drawFrom >= 0 ? papazTellFor(v.drawFrom) : null;
+    return v;
+  }
+
+  function papazPush() {
+    if (!R.papaz || !R.papaz.round) return;
+    w.PapazTable.render(papazView(R.mySeat));
+    if (R.local) return;
+    R.players.forEach((p, seat) => {
+      if (!p || p.isBot || p.id === me().id) return;
+      w.Net.toPlayer(p.id, { t: 'game', game: 'papaz', view: papazView(seat) });
+    });
+  }
+
+  function papazEvent(ev) {
+    w.PapazTable.playEvent(ev);
+    if (!R.local) w.Net.broadcast({ t: 'event', game: 'papaz', ev });
+  }
+
+  /** Bot konuşsun (masaya laf katsın). */
+  function papazSay(seat, kind) {
+    const p = R.players[seat];
+    if (!p || !p.isBot) return;
+    if (!w.PapazBot.shouldReact(kind)) return;
+    papazEvent({ t: 'say', seat, text: w.PapazBot.line(kind) });
+  }
+
+  function papazAction(seat, a) {
+    if (!R.papaz || !R.papaz.round) return { ok: false, reason: 'Oyun yok' };
+    if (a.t !== 'draw') return { ok: false, reason: 'Bilinmeyen hamle' };
+
+    const res = K.drawCard(R.papaz, seat, a.index);
+    if (!res.ok) return res;
+
+    const d = res.draw;
+    /* papaz el değiştirdiyse masayı ayağa kaldır */
+    if (d.papaz) papazEvent({ t: 'papaz', seat: d.by, from: d.from });
+    else if (d.matched) papazSay(d.by, 'paired');
+    else papazSay(d.from, 'gaveGood');
+
+    if (res.finished) { papazFinishRound(); return res; }
+
+    papazPush();
+    schedulePapazBot();
+    return res;
+  }
+
+  const papazAutoSeat = (seat) => {
+    const p = R.players[seat];
+    return !!p && (p.isBot || p.connected === false);
+  };
+
+  function clearPapazTimers() {
+    for (const t of R.papazTimers) clearTimeout(t);
+    R.papazTimers = [];
+  }
+
+  function schedulePapazBot() {
+    clearPapazTimers();
+    if (!R.isHost || !R.papaz || !R.papaz.round || R.papaz.round.finished) return;
+    const rd = R.papaz.round;
+    if (!papazAutoSeat(rd.turn)) return;
+
+    const seat = rd.turn;
+    const level = seat % 3;
+    /* önce "düşünüyor" balonu, sonra kartı çeker */
+    R.papazTimers.push(setTimeout(() => papazSay(seat, 'think'), 250));
+    R.papazTimers.push(setTimeout(() => {
+      if (!R.papaz || !R.papaz.round || R.papaz.round.finished) return;
+      if (R.papaz.round.turn !== seat) return;
+      const from = K.sourceSeatFor(R.papaz.round, seat);
+      if (from === -1) return;
+      const count = R.papaz.round.hands[from].length;
+      const tell = papazTellFor(from);
+      papazAction(seat, { t: 'draw', index: w.PapazBot.pickIndex(count, tell, level) });
+    }, w.PapazBot.thinkMs(level)));
+  }
+
+  function startPapazTimer() {
+    stopTimers();
+    R.tickTimer = setInterval(papazTick, 600);
+  }
+
+  function papazTick() {
+    if (!R.isHost || !R.papaz || !R.papaz.round || R.papaz.round.finished) return;
+    const rd = R.papaz.round;
+
+    /* güvenlik ağı: bot sırasıysa ama zamanlayıcı yoksa yeniden kur */
+    if (!R.papazTimers.length && papazAutoSeat(rd.turn)) { schedulePapazBot(); return; }
+
+    if (!rd.turnEndsAt || Date.now() < rd.turnEndsAt) return;
+    if (papazAutoSeat(rd.turn)) return;
+
+    /* süre doldu: rastgele bir kart çekilir */
+    const seat = rd.turn;
+    const from = K.sourceSeatFor(rd, seat);
+    if (from === -1) return;
+    const count = rd.hands[from].length;
+    papazAction(seat, { t: 'draw', index: Math.floor(Math.random() * count) });
+    if (seat === R.mySeat) w.UI.toast('Süren doldu, kart senin yerine çekildi', 'warn');
+  }
+
+  function papazFinishRound() {
+    const rd = R.papaz.round;
+    const applied = K.applyResult(R.papaz);
+    stopTimers();
+    papazPush();
+
+    if (rd.result.loserSeat !== null && rd.result.loserSeat !== undefined) {
+      papazSay(rd.result.loserSeat, 'lose');
+    }
+
+    const players = R.papaz.players.map((p) => ({
+      seat: p.seat, name: p.name, id: p.id, color: p.color,
+      losses: p.losses, saves: p.saves,
+    }));
+
+    w.Store.bumpStat('papaz', 'played', 1);
+    if (rd.result.loserSeat !== R.mySeat) w.Store.bumpStat('papaz', 'won', 1);
+
+    if (!R.local) {
+      w.Net.broadcast({
+        t: 'result', game: 'papaz', result: rd.result, seats: players,
+        over: applied.over, match: applied.over ? papazMatchPayload() : null,
+      });
+    }
+    if (applied.over) setTimeout(() => w.PapazTable.showMatchOver(papazMatchPayload(), R.mySeat), 1400);
+    else setTimeout(() => w.PapazTable.showResult(rd.result, players, () => papazNextRound(), true), 1400);
+  }
+
+  const papazMatchPayload = () => ({
+    winner: R.papaz.winner,
+    players: R.papaz.players.map((p) => ({ seat: p.seat, name: p.name, losses: p.losses, saves: p.saves })),
+  });
+
+  function papazNextRound() {
+    if (!R.isHost) return;
+    w.UI.closeModal();
+    if (!R.local) w.Net.broadcast({ t: 'nextRound' });
+    papazBeginRound();
+  }
+
   function stopTimers() {
     clearInterval(R.tickTimer); R.tickTimer = null;
     clearTimeout(R.botTimer); R.botTimer = null;
     clearCizBotTimers();
     clearUnoTimers();
+    clearPapazTimers();
   }
 
   /* ================================================ AĞ OLAY BAĞLARI ==== */
@@ -991,6 +1209,7 @@
         sysMsg(`${R.players[seat].name} bağlantısı koptu, yerine bot oynuyor`);
         if (R.game === 'ciz') { cizPush(); scheduleCizBots(); }
         else if (R.game === 'uno') { unoPush(); scheduleUnoBot(); }
+        else if (R.game === 'papaz') { papazPush(); schedulePapazBot(); }
         else { okeyPush(); scheduleBot(); }
       } else {
         const name = R.players[seat].name;
@@ -1015,7 +1234,8 @@
             if (R.mode === 'game') {
               conn.send({ t: 'start', game: R.game, players: R.players });
               const view = R.game === 'ciz' ? C.viewFor(R.ciz, old)
-                : R.game === 'uno' ? N.viewFor(R.uno, old) : okeyView(old);
+                : R.game === 'uno' ? N.viewFor(R.uno, old)
+                : R.game === 'papaz' ? papazView(old) : okeyView(old);
               w.Net.toPlayer(from, { t: 'game', game: R.game, view });
             }
             broadcastLobby(); renderLobby();
@@ -1025,7 +1245,10 @@
           if (filled() >= spec().max) { conn.send({ t: 'kick', reason: 'Masa dolu' }); return; }
           let seat = R.players.findIndex((x) => !x);
           if (seat === -1) { seat = R.players.length; R.players.push(null); }
-          R.players[seat] = { id: from, name: p.name || from, color: p.color || 0, isBot: false, connected: true };
+          R.players[seat] = {
+            id: from, name: p.name || from, color: p.color || 0,
+            acc: p.acc || null, isBot: false, connected: true,
+          };
           sysMsg(`${R.players[seat].name} masaya oturdu`);
           w.SFX.play('join');
           broadcastLobby(); renderLobby();
@@ -1043,6 +1266,7 @@
           if (seat === -1) return;
           const res = R.game === 'ciz' ? cizAction(seat, msg.action || {})
             : R.game === 'uno' ? unoAction(seat, msg.action || {})
+            : R.game === 'papaz' ? papazAction(seat, msg.action || {})
             : okeyAction(seat, msg.action || {});
           if (!res || !res.ok) w.Net.toPlayer(from, { t: 'error', msg: (res && res.reason) || 'Geçersiz hamle' });
           break;
@@ -1066,34 +1290,32 @@
             R.players = msg.players;
             R.mySeat = R.players.findIndex((p) => p && p.id === me().id);
           }
-          if (R.game === 'ciz') { w.App.go('ciz'); w.CizGame.mount(); }
-          else if (R.game === 'uno') { w.App.go('uno'); w.UnoTable.mount(); }
-          else { w.App.go('okey'); w.OkeyTable.mount(); }
+          gameUi().mount();
+          w.App.go(GAMES[R.game].view);
           break;
         case 'game': {
           R.mode = 'game';
           R.game = GAMES[msg.game] ? msg.game : 'okey101';
           R.mySeat = msg.view.mySeat;
           const target = GAMES[R.game].view;
-          const mountFn = R.game === 'ciz' ? w.CizGame.mount
-            : R.game === 'uno' ? w.UnoTable.mount : w.OkeyTable.mount;
+          const ui = gameUi();
           if (!document.querySelector(`.view[data-view="${target}"]`).classList.contains('active')) {
             w.App.go(target);
-            mountFn();
+            ui.mount();
           }
-          if (R.game === 'ciz') w.CizGame.render(msg.view);
-          else if (R.game === 'uno') w.UnoTable.render(msg.view);
-          else w.OkeyTable.render(msg.view);
+          ui.render(msg.view);
           break;
         }
-        case 'event':
-          if (msg.game === 'uno') w.UnoTable.playEvent(msg.ev);
-          else if (msg.game !== 'ciz') w.OkeyTable.playEvent(msg.ev);
+        case 'event': {
+          const ui = msg.game && GAMES[msg.game] ? uiFor(msg.game) : gameUi();
+          if (ui && ui.playEvent) ui.playEvent(msg.ev);
           break;
+        }
         case 'result': {
-          const tbl = msg.game === 'uno' ? w.UnoTable : w.OkeyTable;
-          if (msg.over && msg.match) setTimeout(() => tbl.showMatchOver(msg.match, R.mySeat), 800);
-          else setTimeout(() => tbl.showResult(msg.result, msg.seats, null, false), 800);
+          const tbl = uiFor(msg.game) || w.OkeyTable;
+          const delay = msg.game === 'papaz' ? 1400 : 800;
+          if (msg.over && msg.match) setTimeout(() => tbl.showMatchOver(msg.match, R.mySeat), delay);
+          else setTimeout(() => tbl.showResult(msg.result, msg.seats, null, false), delay);
           break;
         }
         case 'nextRound':
@@ -1122,6 +1344,7 @@
     if (R.isHost) {
       const res = R.game === 'ciz' ? cizAction(R.mySeat, action)
         : R.game === 'uno' ? unoAction(R.mySeat, action)
+        : R.game === 'papaz' ? papazAction(R.mySeat, action)
         : okeyAction(R.mySeat, action);
       if (!res || !res.ok) w.UI.toast((res && res.reason) || 'Geçersiz hamle', 'err');
     } else {

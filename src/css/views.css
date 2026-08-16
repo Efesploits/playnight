@@ -198,6 +198,28 @@
 }
 @keyframes unoBob { 50% { margin-top: -8px; } }
 
+/* papaz kaçtı kartı: iki eş kart ve arkada papaz */
+.papaz-art { position: relative; display: block; overflow: hidden; }
+.pmini {
+  position: absolute; left: 50%; top: 50%; width: 46px; height: 64px; border-radius: 6px;
+  background: linear-gradient(168deg, #fffdf7, #f0e9db); color: #1a1a1a;
+  font-family: Georgia, serif; font-size: 17px; font-weight: 700;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1;
+  box-shadow: 0 6px 16px -5px rgba(0,0,0,.85), inset 0 0 0 1px rgba(0,0,0,.12);
+  animation: pmBob 3.8s var(--ease-in-out) infinite;
+}
+.pmini i { font-style: normal; font-size: 15px; }
+.pmini.red { color: #c8102e; }
+.pmini.p0 { transform: translate(-50%,-50%) rotate(-14deg) translateX(-44px); }
+.pmini.p1 { transform: translate(-50%,-50%) rotate(-2deg); animation-delay: .2s; }
+.pmini.p2 { transform: translate(-50%,-50%) rotate(13deg) translateX(44px); animation-delay: .4s; }
+.pmini.king {
+  background: linear-gradient(165deg, #2a0d18, #4a0f1f 45%, #1c0710); color: #ffd25c;
+  font-size: 26px; box-shadow: 0 6px 18px -5px rgba(0,0,0,.9),
+    inset 0 0 0 1px rgba(255,210,92,.45), 0 0 20px -4px rgba(255,80,80,.55);
+}
+@keyframes pmBob { 50% { margin-top: -7px; } }
+
 /* çiz babacım kartı: kağıt üstünde karalama */
 .ciz-art { position: relative; display: block; overflow: hidden; }
 .ciz-art .doodle { position: absolute; border: 3px solid; border-radius: 50%; opacity: .85; }

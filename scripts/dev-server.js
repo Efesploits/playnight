@@ -19,6 +19,25 @@ const MIME = {
 };
 
 http.createServer((req, res) => {
+  /* Geliştirme kolaylığı: tarayıcıdaki canvas çıktısını diske yazar.
+     Yalnızca bu yerel önizleme sunucusunda vardır, uygulamada yoktur. */
+  if (req.method === 'POST' && req.url === '/__shot') {
+    let body = '';
+    req.on('data', (c) => { body += c; if (body.length > 20e6) req.destroy(); });
+    req.on('end', () => {
+      try {
+        const b64 = body.replace(/^data:image\/\w+;base64,/, '');
+        const out = path.join(ROOT, 'dist', 'preview-shot.jpg');
+        fs.mkdirSync(path.dirname(out), { recursive: true });
+        fs.writeFileSync(out, Buffer.from(b64, 'base64'));
+        res.writeHead(200, { 'Content-Type': 'text/plain' }).end(out);
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' }).end(String(e));
+      }
+    });
+    return;
+  }
+
   let rel = decodeURIComponent(req.url.split('?')[0]);
   if (rel === '/' || rel === '') rel = '/src/index.html';
   const file = path.join(ROOT, rel);

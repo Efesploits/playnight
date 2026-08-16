@@ -45,11 +45,13 @@
         id: w.U.makeCode(6),
         name: 'Oyuncu' + Math.floor(100 + Math.random() * 900),
         color: Math.floor(Math.random() * w.U.AVATAR_COLORS.length),
+        acc: { hat: 'yok', face: 'yok', hair: 'yok' },
         createdAt: Date.now(),
       };
       await save();
     }
     if (typeof data.profile.color !== 'number') data.profile.color = 0;
+    if (!data.profile.acc) data.profile.acc = { hat: 'yok', face: 'yok', hair: 'yok' };
     return data;
   }
 

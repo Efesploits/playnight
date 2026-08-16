@@ -163,6 +163,59 @@
     },
   };
 
+  /* ============================================ PAPAZ KAÇTI KURALLARI == */
+  const PAPAZ_RULES_HTML = `
+<div class="rules-doc">
+  <h4>DESTE</h4>
+  <ul>
+    <li>52'lik desteden <b>3 papaz çıkarılır</b> → <b>49 kart</b> kalır.</li>
+    <li>Bu 49 kartın 48'i çift olur (her sayıdan 4'er tane), geriye <b>tek papaz</b> kalır.
+        Eşi olmadığı için oyun boyunca birinin elinde kalmak zorundadır.</li>
+    <li>Kartlar herkese olabildiğince eşit dağıtılır.</li>
+  </ul>
+
+  <h4>ÇİFTLER</h4>
+  <ul>
+    <li>Oyun başlamadan herkes elindeki çiftleri <b>yere açar</b>.</li>
+    <li>Eşleşme <b>sayıya</b> göredir, <b>renk önemsizdir</b>: iki tane 7 çifttir,
+        maça 3 ile maça 9 çift değildir.</li>
+    <li>Aynı sayıdan dört kart varsa iki çift olur.</li>
+  </ul>
+
+  <h4>OYUN AKIŞI</h4>
+  <ul>
+    <li>Sıra sana gelince <b>sağındaki oyuncunun elinden görmeden bir kart seçersin</b>.
+        Kartlar kapalıdır; hangisini alacağın tamamen sana kalmış.</li>
+    <li>Çektiğin kart elindekilerden biriyle eşleşirse <b>o çift de yere gider</b>.</li>
+    <li>Eşleşmezse kart elinde kalır ve sıra sonrakine geçer.</li>
+    <li>Eli biten oyuncu <b>kurtulur</b> ve masadan kalkar; sırası atlanır.</li>
+  </ul>
+
+  <h4>BİTİŞ</h4>
+  <ul>
+    <li>Herkesin eli bitince geriye tek kişi kalır — <b>papaz ondadır ve eli kaybeder</b>.</li>
+    <li>Maç varsayılan olarak <b>5 el</b> sürer. Sonunda <b>en az papaz kalan kazanır</b>.</li>
+  </ul>
+
+  <h4>MASADA NELER OLUYOR?</h4>
+  <ul>
+    <li>Botlar gerçek oyuncular gibi davranır: <b>papazı tutan acemi bot elinde huzursuzca oynar</b>
+        ve o kartı biraz öne iter. Buna <b>tell</b> denir.</li>
+    <li>Ama dikkat — bazıları <b>blöf</b> yapar, masum bir kartı öne iter. Usta botlar
+        gerçek papazı asla göstermez, üstelik senin tell'ini okur.</li>
+    <li>Yelpazeden bir karta yaklaştığında kart yukarı kalkar. Seçtiğinde ortaya gelir,
+        bir an durur ve <b>çevrilir</b>. O an masadaki herkes nefesini tutar.</li>
+    <li>Oyuncular olan bitene laf atar. Papaz sana geldiğinde bunu duyacaksın.</li>
+  </ul>
+</div>`;
+
+  w.PapazRules = {
+    show() {
+      w.UI.modal({ title: 'PAPAZ KAÇTI KURALLARI', wide: true, body: PAPAZ_RULES_HTML,
+        actions: [{ label: 'ANLADIM', kind: 'btn-primary' }] });
+    },
+  };
+
   /* =========================================================== ROUTING == */
   let currentView = 'home';
 
@@ -181,6 +234,13 @@
 
     if (view === 'friends') w.Friends.render();
     if (view === 'home') refreshStats();
+
+    /* 3B sahneler yalnızca görünürken çizilsin (pil ve GPU) */
+    if (w.PapazTable && w.PapazTable.setActive) w.PapazTable.setActive(view === 'papaz');
+    if (charState.preview) {
+      if (view === 'settings') { charState.preview.start(); charState.preview.resize(); }
+      else charState.preview.stop();
+    }
   }
 
   /* ============================================================ AYARLAR = */
@@ -212,9 +272,74 @@
       host.appendChild(el('button', {
         class: 'sw' + (i === p.color ? ' on' : ''),
         style: { background: `linear-gradient(135deg, ${c[0]}, ${c[1]})` },
-        onclick: async () => { await w.Store.update((d) => { d.profile.color = i; }); paintProfile(); },
+        onclick: async () => {
+          await w.Store.update((d) => { d.profile.color = i; });
+          paintProfile();
+          refreshCharPreview();
+        },
       }));
     });
+  }
+
+  /* ================================================ KARAKTER EDİTÖRÜ == */
+  const charState = { preview: null, acc: null };
+
+  function bindCharEditor() {
+    const host = $('#charOpts');
+    const canvas = $('#charPreview');
+    if (!host || !canvas) return;
+
+    const p = w.Store.profile();
+    charState.acc = Object.assign({ hat: 'yok', face: 'yok', hair: 'yok' }, p.acc || {});
+
+    if (!w.Papaz3D || !w.Papaz3D.HAS3D) {
+      canvas.remove();
+      $('.char-preview').appendChild(el('div', { class: 'no3d-msg',
+        text: '3B önizleme bu ortamda kullanılamıyor.' }));
+    } else {
+      charState.preview = w.Papaz3D.createPreview(canvas);
+      if (charState.preview) {
+        charState.preview.set(p.color, charState.acc);
+        charState.preview.start();
+      }
+    }
+
+    const A = w.Papaz3D ? w.Papaz3D.ACCESSORIES : { hat: ['yok'], face: ['yok'], hair: ['yok'] };
+    const L = w.Papaz3D ? w.Papaz3D.ACC_LABEL : {};
+    const ROWS = [['hat', 'Şapka'], ['face', 'Yüz'], ['hair', 'Detay']];
+
+    clear(host);
+    for (const [key, label] of ROWS) {
+      const chips = el('div', { class: 'char-chips' });
+      for (const val of A[key]) {
+        chips.appendChild(el('button', {
+          class: 'char-chip' + (charState.acc[key] === val ? ' on' : ''),
+          text: (L[key] && L[key][val]) || val,
+          onclick: (ev) => {
+            charState.acc[key] = val;
+            [...chips.children].forEach((c) => c.classList.remove('on'));
+            ev.currentTarget.classList.add('on');
+            if (charState.preview) charState.preview.set(w.Store.profile().color, charState.acc);
+            w.SFX.play('pick');
+          },
+        }));
+      }
+      host.appendChild(el('div', { class: 'char-row' }, [el('span', { text: label }), chips]));
+    }
+
+    $('#saveChar').onclick = async () => {
+      await w.Store.update((d) => { d.profile.acc = Object.assign({}, charState.acc); });
+      const msg = $('#charMsg');
+      msg.textContent = 'Karakterin kaydedildi.';
+      msg.className = 'form-msg ok';
+      w.SFX.play('ok');
+      setTimeout(() => { msg.textContent = ''; }, 2500);
+    };
+  }
+
+  /** Renk değişince önizleme de güncellensin. */
+  function refreshCharPreview() {
+    if (charState.preview) charState.preview.set(w.Store.profile().color, charState.acc || {});
   }
 
   function bindSettings() {
@@ -296,7 +421,9 @@
       ? 'Botlarla dene — onlar karalar, sen çizersin.'
       : g === 'uno'
         ? 'Üç bot rakiple hemen başla.'
-        : 'Üç bilgisayar rakibiyle anında masaya otur.';
+        : g === 'papaz'
+          ? 'Üç bot masaya otursun. Papazı kime yıkacaksın?'
+          : 'Üç bilgisayar rakibiyle anında masaya otur.';
 
     const body = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } }, [
       bigChoice('🤖', 'BOTLARLA HEMEN OYNA', soloText, () => {
@@ -372,6 +499,7 @@
     $('#ctaPlay').onclick = () => { w.SFX.play('click'); playMenu('okey101'); };
     $('#ctaCiz').onclick = () => { w.SFX.play('click'); playMenu('ciz'); };
     $('#ctaUno').onclick = () => { w.SFX.play('click'); playMenu('uno'); };
+    $('#ctaPapaz').onclick = () => { w.SFX.play('click'); playMenu('papaz'); };
     $('#ctaJoin').onclick = () => { w.SFX.play('click'); joinPrompt(); };
     $('#btnRules').onclick = () => { w.SFX.play('click'); Rules.show(); };
     $$('[data-play]').forEach((n) => {
@@ -433,6 +561,8 @@
     w.CizGame.onLeave = leaveGame;
     w.UnoTable.onAction = (a) => w.Room.sendAction(a);
     w.UnoTable.onLeave = leaveGame;
+    w.PapazTable.onAction = (a) => w.Room.sendAction(a);
+    w.PapazTable.onLeave = leaveGame;
 
     /* ilk kullanıcı etkileşiminde sesi başlat (tarayıcı politikası) */
     const kick = () => { w.SFX.resume(); if (w.Store.settings().music) w.SFX.startMusic(); document.removeEventListener('pointerdown', kick); };
@@ -449,6 +579,7 @@
     w.BG.start();
 
     paintProfile();
+    bindCharEditor();
     bindSettings();
     paintAbout();
     wireUI();

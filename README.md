@@ -1,8 +1,8 @@
 # 🎴 Play Night
 
-Arkadaşlarınla oyun gecesi. Sinematik açılış, mavi-siyah tema ve üç oyun:
-tam kurallarıyla **101 Okey**, Gartic Phone tarzı **Çiz Babacım** ve **UNO**.
-Windows masaüstü uygulaması (Electron).
+Arkadaşlarınla oyun gecesi. Sinematik açılış, mavi-siyah tema ve dört oyun:
+tam kurallarıyla **101 Okey**, Gartic Phone tarzı **Çiz Babacım**, **UNO** ve
+3B masada oynanan **Papaz Kaçtı**. Windows masaüstü uygulaması (Electron).
 
 **Port açmana gerek yok.** Bağlantı eşler arası (WebRTC) kurulur; modem/router ayarı,
 port yönlendirme, sabit IP gerekmez.
@@ -39,12 +39,14 @@ Sadece taşınabilir sürüm için: `npm run dist:portable`
 ## Testler
 
 ```bash
-node tests/engine.test.js     # 141 okey kural testi
-node tests/ciz.test.js        # 124 çiz babacım testi
-node tests/uno.test.js        # 135 uno kural testi
-node tests/update.test.js     # 23 güncelleme mantığı testi
-node tests/sim.test.js 20     # botlar 20 tam okey maçı oynar
-node tests/uno-sim.test.js 20 # botlar 20 tam uno maçı oynar
+node tests/engine.test.js       # 141 okey kural testi
+node tests/ciz.test.js          # 124 çiz babacım testi
+node tests/uno.test.js          # 135 uno kural testi
+node tests/papaz.test.js        # 113 papaz kaçtı testi
+node tests/update.test.js       #  23 güncelleme mantığı testi
+node tests/sim.test.js 20       # 20 tam okey maçı
+node tests/uno-sim.test.js 20   # 20 tam uno maçı
+node tests/papaz-sim.test.js 20 # 20 tam papaz kaçtı maçı
 ```
 
 ---
@@ -56,6 +58,7 @@ node tests/uno-sim.test.js 20 # botlar 20 tam uno maçı oynar
 | **101 Okey** | 4 | Klasik yüzbir: gösterge, okey, 101 puanla açma, işleme, tam puanlama. |
 | **Çiz Babacım** | 2–8 | Yaz → çiz → tahmin et → çiz… Cümle elden ele geçtikçe tanınmaz olur, sonunda albüm açılır. |
 | **UNO** | 2–6 | 108 kart, renk/sayı eşleştir. Joker+4 blöfü ve itirazı, UNO deme cezası, 500 puana yarış. |
+| **Papaz Kaçtı** | 2–6 | Karanlık odada, tepeden sarkan ampulün altında **3B masa**. Çift at, sağındakinden kart çek, papazdan kaç. |
 
 ## Nasıl oynanır
 
@@ -104,6 +107,40 @@ Resmi Mattel kuralları uygulandı ([unorules.com](https://www.unorules.com/)):
 - Deste biterse atılanlar (üstteki hariç) karıştırılıp yeni deste olur.
 - **Puanlama:** sayı kartları yüzü kadar, Pas/Yön/+2 20, Jokerler 50. Kazanan rakiplerin
   elinde kalanları alır; **500 puana** ilk ulaşan maçı kazanır (ayarlanabilir).
+
+## Papaz Kaçtı kuralları
+
+Kaynaklar: [Hürriyet](https://www.hurriyet.com.tr/aile/papaz-kacti-nasil-oynanir-oyunun-kurallari-nelerdir-papaz-kimde-kac-kagitla-oynanir-41900733),
+[Milliyet](https://www.milliyet.com.tr/oyun/papaz-kacti-nasil-oynanir-papaz-kacti-oyunun-kurallari-nelerdir-6522043),
+[Sabah](https://www.sabah.com.tr/yasam/papaz-kacti-nasil-oynanir-papaz-kimde-2-kisi-oynanir-mi-kac-kagit-dagitilir-kac-tane-papaz-olur-k1-6179094).
+
+- 52'lik desteden **3 papaz çıkarılır** → **49 kart**. 48'i çift olur, geriye **eşsiz tek papaz** kalır.
+- Kartlar herkese olabildiğince eşit dağıtılır; oyun başlamadan herkes elindeki çiftleri yere açar.
+- Eşleşme **sayıya** göredir, renk önemsizdir (iki 7 çifttir, maça 3 ile maça 9 değildir).
+- Sıran gelince **sağındaki oyuncunun elinden görmeden bir kart çekersin**. Eşleşirse o çift de yere gider.
+- Eli biten **kurtulur** ve masadan kalkar. Sonunda tek kalan — papaz ondadır — eli kaybeder.
+- Varsayılan **5 el**; sonunda **en az papaz kalan kazanır**.
+
+### 3B masa
+
+Sahne Three.js ile çizilir: karanlık bir oda, tepeden sarkan ve hafifçe sallanan **tek bir ampul**,
+altında yuvarlak keçe masa. Oyuncular masanın etrafında **3B kafalar** olarak oturur.
+
+- **Kafa rengi profil renginden gelir.** Aksesuarlar (şapka/kasket/silindir/taç/fes, gözlük/güneş
+  gözlüğü/maske, bıyık/sakal/papyon) **Ayarlar → Karakterin** bölümünden canlı 3B önizlemeyle seçilir.
+- Botların da kendine ait, sabit bir görünümü vardır.
+- **Tell:** papazı tutan acemi bot kartı elinde huzursuzca oynar ve öne iter. Bazıları blöf yapar;
+  usta botlar gerçek papazı asla göstermez, üstelik karşısındakinin tell'ini okur.
+- Kart seçtiğinde kart yelpazeden çıkar, ortaya gelir, **bir an durur** ve çevrilir.
+  Papaz çıkarsa ampul patlar, masa sarsılır.
+- Oyuncular olan bitene konuşma balonlarıyla laf atar.
+
+> **Kart gizliliği:** Rakiplerin kartları hiçbir zaman istemciye gönderilmez — görünümde yalnızca
+> *kart sayısı* vardır (`papaz/engine.js` → `viewFor`). 3B sahnede de yalnızca kapalı kart sırtları
+> çizilir. Bu, hem birim testiyle hem canlı oyunda doğrulanır.
+
+Three.js `vendor/three.min.js` olarak uygulamayla birlikte gelir; internet gerekmez.
+WebGL çalışmazsa oyun düz arka planla sorunsuz oynanmaya devam eder.
 
 ## Güncelleme
 
@@ -210,6 +247,10 @@ src/js/ciz/game.js     Çiz Babacım arayüzü ve albüm sunumu
 src/js/uno/engine.js   UNO kural motoru (saf)
 src/js/uno/bot.js      UNO botları (blöf ve itiraz kararları dahil)
 src/js/uno/table.js    UNO masası, renk seçici, itiraz penceresi
+src/js/papaz/engine.js Papaz Kaçtı kural motoru (saf)
+src/js/papaz/bot.js    botlar: kart seçimi, tell'ler, laf atmalar
+src/js/papaz/scene3d.js 3B oda, ampul, masa ve karakterler (Three.js)
+src/js/papaz/table.js  masa arayüzü, çekme sahnesi, isim/balon katmanı
 src/js/update.js       sürüm kontrolü ve kurulum arayüzü
 src/js/net.js          WebRTC / PeerJS taşıma katmanı
 src/js/room.js         lobi + oyun oturumları (host otoritesi, iki oyunu da taşır)

@@ -1,0 +1,355 @@
+/* =========================================================================
+   PLAY NIGHT — PAPAZ KAÇTI
+   Hedef: ekranda değil, masada oturuyormuş hissi.
+   ========================================================================= */
+
+/* Sahne 3B canvas'tan gelir; buradaki her şey onun üstünde duran katmandır. */
+.papaz-root {
+  position: absolute; inset: 0;
+  --pw: 74px; --ph: 104px;              /* kart ölçüsü */
+  display: grid; grid-template-rows: 56px 1fr auto;
+  background: #030407;
+}
+.papaz-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: block; z-index: 0;
+}
+/* 3B yoksa (eski sürücü vb.) en azından karanlık bir oda hissi kalsın */
+.papaz-root.no3d .papaz-canvas { display: none; }
+.papaz-root.no3d {
+  background: radial-gradient(ellipse 60% 45% at 50% 38%, #1a4a37 0%, #0a2119 42%, #04080e 76%, #020407 100%);
+}
+.papaz-vignette {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse 62% 48% at 50% 40%, transparent 35%, rgba(0,0,0,.72) 100%);
+}
+.papaz-root > .papaz-top,
+.papaz-root > .papaz-stage,
+.papaz-root > .papaz-bottom { position: relative; z-index: 3; }
+
+/* ============================================================ ÜST BAR == */
+.papaz-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 0 20px; border-bottom: 1px solid rgba(120,200,160,.14);
+  background: linear-gradient(180deg, rgba(2,8,6,.92), rgba(2,8,6,.3));
+  backdrop-filter: blur(8px);
+}
+.pt-info { display: flex; align-items: center; gap: 16px; }
+.pt-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pt-item > span { font-family: var(--font-display); font-size: 9.5px; letter-spacing: .2em; color: #7fae97; }
+.pt-item > b { font-family: var(--font-display); font-size: 18px; line-height: 1; color: #a8f0cc; }
+.pt-sep { width: 1px; height: 24px; background: rgba(120,200,160,.2); }
+.pt-right { display: flex; align-items: center; gap: 9px; }
+
+.papaz-timer { position: relative; width: 40px; height: 40px; }
+.papaz-timer svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.papaz-timer circle { fill: none; stroke-width: 3.5; }
+.papaz-timer .tm-bg { stroke: rgba(120,200,160,.16); }
+.papaz-timer .tm-fg { stroke: #35e08a; stroke-linecap: round; transition: stroke .3s; }
+.papaz-timer.tm-low .tm-fg { stroke: var(--red); }
+.papaz-timer .tm-num { position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--font-display); font-size: 14px; }
+
+/* ============================================================== SAHNE == */
+.papaz-stage { position: relative; overflow: hidden; display: flex; flex-direction: column; }
+
+/* ------------------------- 3B kafaların üstünde yüzen isim etiketleri - */
+.name-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+
+.pname {
+  position: absolute; translate: -50% -100%;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 6px 12px 7px; border-radius: 12px; white-space: nowrap;
+  background: rgba(4,14,10,.72); border: 1px solid rgba(120,200,160,.18);
+  backdrop-filter: blur(6px); transition: opacity .3s, border-color .3s, box-shadow .3s;
+}
+.pname.turn { border-color: rgba(53,224,138,.65);
+  box-shadow: 0 0 26px -6px rgba(53,224,138,.8); }
+.pname.source { border-color: rgba(255,201,60,.6); box-shadow: 0 0 26px -6px rgba(255,201,60,.7); }
+.pname.out { opacity: .42; }
+.pname.hidden { opacity: 0; }
+.pn-top { display: flex; align-items: center; gap: 7px; }
+.pn-name { font-family: var(--font-display); font-size: 13px; letter-spacing: .03em;
+  max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.pn-bot { font-size: 8px; padding: 1px 5px; border-radius: 4px;
+  background: #17493a; color: #b6f0d3; font-family: var(--font-display); }
+.pn-sub { display: flex; gap: 8px; font-size: 11px; color: #85b8a1; }
+.pn-sub .pcount { color: #a8f0cc; font-family: var(--font-display); }
+.pn-sub .ps-loss { color: #ff8fa0; font-family: var(--font-display); }
+.pn-out { font-family: var(--font-display); font-size: 10px; letter-spacing: .14em;
+  color: #6ff0ae; }
+
+/* konuşma balonu — 3B kafanın üstüne oturur */
+.bubble-layer { position: absolute; inset: 0; pointer-events: none; z-index: 7; }
+.ps-bubble {
+  position: absolute; translate: -50% -100%; white-space: nowrap; max-width: 240px;
+  padding: 7px 14px; border-radius: 15px;
+  background: #f4f7ff; color: #16233d; font-size: 13px; font-weight: 600;
+  box-shadow: 0 10px 26px -6px rgba(0,0,0,.9);
+  animation: bubbleIn .35s var(--ease-back) both;
+}
+.ps-bubble::after { content: ''; position: absolute; bottom: -5px; left: 50%; translate: -50% 0;
+  width: 11px; height: 11px; background: #f4f7ff; rotate: 45deg; }
+.ps-bubble.out { animation: bubbleOut .3s var(--ease-in-out) both; }
+@keyframes bubbleIn { from { opacity: 0; transform: translate(-50%, 10px) scale(.8); } }
+@keyframes bubbleOut { to { opacity: 0; transform: translate(-50%, -10px) scale(.92); } }
+
+/* ============================================================== KART == */
+.pcard {
+  position: relative; width: var(--pw); height: var(--ph); flex: none;
+  border-radius: 7px; background: linear-gradient(168deg, #fffdf7, #f2ece0);
+  box-shadow: 0 3px 10px -3px rgba(0,0,0,.8), inset 0 0 0 1px rgba(0,0,0,.14);
+  font-family: "Georgia", "Times New Roman", serif; user-select: none;
+  color: #1a1a1a;
+}
+.pcard.red { color: #c8102e; }
+.pc-tl, .pc-br {
+  position: absolute; display: flex; flex-direction: column; align-items: center; line-height: .95;
+  font-size: calc(var(--ph) * .17); font-weight: 700;
+}
+.pc-tl { top: calc(var(--ph) * .05); left: calc(var(--pw) * .09); }
+.pc-br { bottom: calc(var(--ph) * .05); right: calc(var(--pw) * .09); rotate: 180deg; }
+.pc-tl i, .pc-br i { font-style: normal; font-size: calc(var(--ph) * .14); }
+.pc-mid {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: calc(var(--ph) * .40); opacity: .92;
+}
+.pcard.face .pc-mid { font-size: calc(var(--ph) * .34); font-weight: 700; letter-spacing: -.02em; }
+
+/* PAPAZ — masanın kabusu */
+.pcard.papaz {
+  background: linear-gradient(165deg, #2a0d18, #4a0f1f 45%, #1c0710);
+  color: #ffd25c;
+  box-shadow: 0 4px 14px -3px rgba(0,0,0,.9), inset 0 0 0 1px rgba(255,210,92,.45),
+              0 0 22px -4px rgba(255,80,80,.5);
+}
+.pcard.papaz .pc-mid { font-size: calc(var(--ph) * .46); text-shadow: 0 0 18px rgba(255,190,60,.9); }
+.pcard.papaz::after {
+  content: ''; position: absolute; inset: 4px; border-radius: 5px;
+  border: 1px solid rgba(255,210,92,.3); pointer-events: none;
+}
+
+/* kart arkası */
+.pcard.back {
+  background: linear-gradient(150deg, #26467f, #16294f 60%, #0f1c39);
+  box-shadow: 0 3px 10px -3px rgba(0,0,0,.85), inset 0 0 0 1px rgba(160,200,255,.22);
+  color: transparent;
+}
+.pcard.back::before {
+  content: ''; position: absolute; inset: 5px; border-radius: 4px;
+  border: 1px dashed rgba(170,210,255,.28);
+  background:
+    repeating-linear-gradient(45deg, rgba(170,210,255,.07) 0 3px, transparent 3px 7px);
+}
+.pcard.back::after {
+  content: '♠'; position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: calc(var(--ph) * .3); color: rgba(180,215,255,.3);
+}
+
+/* ==================================================== ÇEKME SAHNESİ === */
+.draw-stage {
+  flex: 1; position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 10px 20px 0;
+}
+.ds-title {
+  font-family: var(--font-display); font-size: 13px; letter-spacing: .2em;
+  color: #8fd8b4; text-align: center;
+}
+.ds-title b { color: #fff; }
+.ds-hint { font-size: 12px; color: #6f9d88; text-align: center; margin-top: -6px; }
+
+/* rakibin yelpazesi — dokunulacak yer burası */
+.target-fan {
+  position: relative; display: flex; justify-content: center; align-items: flex-end;
+  height: calc(var(--ph) * 1.5); width: 100%; perspective: 1100px;
+}
+.target-fan .fan-card {
+  position: absolute; bottom: 0; transform-origin: 50% 130%;
+  transform: rotate(var(--rot)) translateY(var(--ty, 0px));
+  transition: transform .22s var(--ease-out), filter .22s;
+  cursor: pointer;
+}
+.target-fan.locked .fan-card { cursor: default; }
+.target-fan .fan-card:hover {
+  transform: rotate(var(--rot)) translateY(calc(var(--ty, 0px) - 26px)) scale(1.06);
+  z-index: 20;
+}
+.target-fan .fan-card:hover .pcard {
+  box-shadow: 0 14px 30px -6px rgba(0,0,0,.95), 0 0 0 2px #ffd25c, 0 0 30px rgba(255,201,60,.6);
+}
+/* botun "öne ittiği" kart — masadaki tell */
+.target-fan .fan-card.tell { transform: rotate(var(--rot)) translateY(calc(var(--ty, 0px) - 16px)); }
+.target-fan .fan-card.tell .pcard { box-shadow: 0 10px 22px -6px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.25); }
+.target-fan .fan-card.taken { opacity: 0; pointer-events: none; transition: opacity .1s; }
+
+/* seyirci modu: sıradaki oyuncunun elinden kart çekilişi */
+.watch-box { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.watch-line { font-family: var(--font-display); font-size: clamp(16px, 2.2vw, 24px);
+  letter-spacing: .1em; color: #cfeede; text-align: center; }
+.watch-line em { font-style: normal; color: #ffd25c; }
+.watch-fan { display: flex; }
+.watch-fan .pcard { margin-left: -34px; --pw: 54px; --ph: 76px; }
+.watch-fan .pcard:first-child { margin-left: 0; }
+.watch-dots { display: flex; gap: 6px; }
+.watch-dots i { width: 7px; height: 7px; border-radius: 50%; background: #35e08a;
+  animation: dotBounce 1s infinite; }
+.watch-dots i:nth-child(2) { animation-delay: .15s; }
+.watch-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes dotBounce { 0%,60%,100% { transform: translateY(0); opacity: .4; } 30% { transform: translateY(-7px); opacity: 1; } }
+
+/* ------------------------------------------------- çevrilen kart ----- */
+.reveal-layer { position: absolute; inset: 0; pointer-events: none; z-index: 40; }
+.reveal-card {
+  position: absolute; left: 50%; top: 42%; translate: -50% -50%;
+  transform-style: preserve-3d; transition: transform .5s var(--ease-out), opacity .3s;
+  --pw: 116px; --ph: 164px;
+}
+.reveal-card .face-wrap { position: relative; transform-style: preserve-3d;
+  transition: transform .45s cubic-bezier(.5,0,.2,1); }
+.reveal-card.flipped .face-wrap { transform: rotateY(180deg); }
+.reveal-card .pcard { position: absolute; inset: 0; backface-visibility: hidden; }
+.reveal-card .pcard.back { transform: rotateY(0deg); }
+.reveal-card .pcard.front { transform: rotateY(180deg); }
+.reveal-card.pop { animation: revealPop .45s var(--ease-back); }
+@keyframes revealPop { 0% { scale: 1; } 45% { scale: 1.16; } 100% { scale: 1; } }
+
+.reveal-tag {
+  position: absolute; left: 50%; top: calc(42% + 118px); translate: -50% 0;
+  font-family: var(--font-display); font-size: 22px; letter-spacing: .16em;
+  padding: 7px 20px; border-radius: 99px; opacity: 0;
+}
+.reveal-tag.show { animation: tagIn .9s var(--ease-out) both; }
+.reveal-tag.good { background: linear-gradient(135deg,#35e08a,#0d8a52); color: #04180f;
+  box-shadow: 0 8px 30px -6px rgba(53,224,138,.9); }
+.reveal-tag.bad { background: linear-gradient(135deg,#ff5c70,#8c0f22); color: #fff;
+  box-shadow: 0 8px 34px -6px rgba(255,77,99,.95); }
+.reveal-tag.meh { background: rgba(20,40,32,.9); color: #9fd9bd; border: 1px solid rgba(120,200,160,.3); }
+@keyframes tagIn {
+  0% { opacity: 0; transform: translate(-50%, 14px) scale(.7); }
+  25% { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
+  75% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -10px) scale(1); }
+}
+
+/* papaz sürprizi */
+.papaz-flash { position: absolute; inset: 0; z-index: 38; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at 50% 42%, rgba(255,40,60,.42), transparent 62%); }
+.papaz-flash.on { animation: flashIn 1.1s var(--ease-out); }
+@keyframes flashIn { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
+.shake { animation: tableShake .55s cubic-bezier(.36,.07,.19,.97); }
+@keyframes tableShake {
+  10%,90% { transform: translateX(-3px); }
+  20%,80% { transform: translateX(5px); }
+  30%,50%,70% { transform: translateX(-8px); }
+  40%,60% { transform: translateX(8px); }
+}
+
+/* uçan kart katmanı */
+.pfly-layer { position: absolute; inset: 0; pointer-events: none; z-index: 36; }
+.pfly { position: absolute; transition: transform .5s var(--ease-out), opacity .5s; }
+
+/* =============================================================== EL === */
+.papaz-bottom {
+  display: grid; grid-template-columns: 190px 1fr 170px; gap: 14px; align-items: center;
+  padding: 8px 20px 14px; z-index: 8;
+  border-top: 1px solid rgba(120,200,160,.14);
+  background: linear-gradient(0deg, rgba(3,14,10,.97), rgba(3,14,10,.5));
+  backdrop-filter: blur(10px);
+}
+.pme {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--r-lg);
+  background: linear-gradient(140deg, rgba(12,44,33,.75), rgba(4,18,14,.75));
+  border: 1px solid rgba(120,200,160,.16); transition: .3s var(--ease-out);
+}
+.pme.turn { border-color: rgba(53,224,138,.55);
+  box-shadow: 0 0 0 1px rgba(53,224,138,.3), 0 0 34px -8px rgba(53,224,138,.6); }
+.pme-av { width: 38px; height: 38px; border-radius: 11px; flex: none; display: grid; place-items: center;
+  font-family: var(--font-display); font-size: 15px; color: #fff; }
+.pme-name { font-family: var(--font-display); font-size: 14px; }
+.pme-sub { font-size: 11px; color: #79a893; }
+.pme-sub b { color: #a8f0cc; font-family: var(--font-display); }
+
+/* kendi elin: yelpaze, açık */
+.my-hand-wrap { position: relative; min-height: calc(var(--ph) * 1.35);
+  display: flex; align-items: flex-end; justify-content: center; }
+.my-hand { position: relative; display: flex; justify-content: center; align-items: flex-end;
+  height: calc(var(--ph) * 1.3); width: 100%; }
+.my-hand .hand-card {
+  position: absolute; bottom: 6px; transform-origin: 50% 150%;
+  transform: rotate(var(--rot)) translateY(var(--ty, 0px));
+  transition: transform .25s var(--ease-out);
+}
+.my-hand .hand-card:hover { transform: rotate(var(--rot)) translateY(calc(var(--ty, 0px) - 18px)) scale(1.05); z-index: 20; }
+.my-hand .hand-card.fresh { animation: cardIn .5s var(--ease-back) both; }
+@keyframes cardIn { from { opacity: 0; transform: rotate(var(--rot)) translateY(-90px) scale(1.3); } }
+.my-hand .hand-card.leaving { animation: cardOut .4s var(--ease-in-out) both; }
+@keyframes cardOut { to { opacity: 0; transform: rotate(var(--rot)) translateY(-70px) scale(.7); } }
+.my-hand .hand-card.dealt { animation: dealFly .5s var(--ease-back) both; }
+@keyframes dealFly { from { opacity: 0; transform: translate(0, -260px) rotate(0deg) scale(.5); } }
+
+/* yere açılan çiftler */
+.my-pairs { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+.mp-label { font-family: var(--font-display); font-size: 10px; letter-spacing: .18em; color: #79a893; }
+.mp-stack { display: flex; flex-wrap: wrap; gap: 3px; justify-content: flex-end; max-height: 76px; overflow: hidden; }
+.mp-pair { display: flex; }
+.mp-pair .pcard { --pw: 26px; --ph: 37px; margin-left: -13px; }
+.mp-pair .pcard:first-child { margin-left: 0; }
+.mp-pair.fresh { animation: pairPop .5s var(--ease-back) both; }
+@keyframes pairPop { 0% { opacity: 0; transform: scale(0) rotate(-30deg); } 100% { opacity: 1; } }
+
+/* ============================================================ AFİŞ ==== */
+#papazBanner {
+  position: absolute; left: 50%; top: 36%; translate: -50% -50%; z-index: 44;
+  font-family: var(--font-display); font-size: clamp(28px, 4.8vw, 60px); letter-spacing: .14em;
+  color: #fff; text-shadow: 0 0 40px rgba(53,224,138,.9); opacity: 0; pointer-events: none;
+  white-space: nowrap; text-align: center;
+}
+#papazBanner.show { animation: bannerIn 1.6s var(--ease-out) both; }
+#papazBanner .sub { display: block; font-size: .34em; letter-spacing: .3em; color: #8fd8b4; margin-top: 10px; }
+#papazBanner.bad { color: #ff8fa0; text-shadow: 0 0 46px rgba(255,60,90,.95); }
+
+/* ------------------------------------------------------- el sonucu --- */
+.papaz-result-card {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 18px;
+}
+.prc-face { --pw: 96px; --ph: 136px; animation: loserCard 1s var(--ease-back) both; }
+@keyframes loserCard {
+  0% { opacity: 0; transform: scale(.3) rotate(-25deg); }
+  60% { transform: scale(1.12) rotate(4deg); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* ================================================= KARAKTER EDİTÖRÜ == */
+.char-editor { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: start; }
+.char-preview {
+  width: 150px; height: 150px; border-radius: var(--r-lg); overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #16233f, #070b16 70%);
+  border: 1px solid var(--line-soft); display: grid; place-items: center;
+}
+.char-preview canvas { width: 100%; height: 100%; display: block; }
+.char-preview .no3d-msg { font-size: 11.5px; color: var(--muted); text-align: center; padding: 12px; }
+.char-opts { display: flex; flex-direction: column; gap: 10px; }
+.char-row > span { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 5px; font-weight: 600; }
+.char-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.char-chip {
+  padding: 5px 11px; border-radius: 99px; font-size: 12px;
+  border: 1px solid var(--line-soft); background: rgba(18,32,68,.5); color: var(--text-dim);
+  transition: .16s var(--ease-back);
+}
+.char-chip:hover { border-color: rgba(122,182,255,.5); color: #fff; }
+.char-chip.on { background: linear-gradient(135deg, var(--blue-600), var(--blue-700));
+  border-color: transparent; color: #fff; }
+
+/* -------------------------------------------------------- dar ekran -- */
+@media (max-height: 840px) {
+  .papaz-root { --pw: 62px; --ph: 88px; }
+  .reveal-card { --pw: 96px; --ph: 136px; }
+  .papaz-seats { padding-top: 14px; gap: 10px; }
+  .pseat { min-width: 112px; padding: 8px 11px 10px; }
+}
+@media (max-width: 1150px) {
+  .papaz-root { --pw: 58px; --ph: 82px; }
+  .papaz-bottom { grid-template-columns: 150px 1fr 140px; }
+}
