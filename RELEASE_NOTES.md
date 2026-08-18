@@ -1,4 +1,4 @@
-# Play Night v1.2.1
+# Play Night v1.3.0
 
 Arkadaşlarınla oyun gecesi. **Port açmana gerek yok** — bağlantı eşler arası (WebRTC) kurulur.
 
@@ -14,18 +14,27 @@ Arkadaşlarınla oyun gecesi. **Port açmana gerek yok** — bağlantı eşler a
 
 ## Yenilikler
 
-### 🃏 Papaz Kaçtı: kartlarını istediğin gibi diz
+### ♟️ SATRANÇ — 1v1 ve 2v2 danışma modu
 
-Rakip senin elinden **konuma göre** kart çekiyor — yani papazın elinde nerede durduğu
-gerçekten önemli. Artık kartlarını dilediğin sıraya koyabilirsin:
+Tam kurallı satranç: rok, geçerken alma, terfi, pat, 50 hamle, üç tekrar,
+yetersiz materyal — hepsi var. Satranç saati (süre + hamle başı artış),
+SAN hamle listesi, alınan taşlar ve materyal farkı, sürükle ya da tıkla oyna.
 
-- **Sürükle bırak:** kartı tut, istediğin yere taşı. Diğerleri kenara kayıp yer açar.
-- **KARIŞTIR düğmesi** (ya da **K** tuşu): hepsini bir hamlede rastgele dizer.
-- Çektiğin yeni kart elinin rastgele bir yerine girer — istersen taşırsın.
-- Tek kısıt: **sıradaki oyuncu tam senden çekerken karıştıramazsın** (adil olsun diye).
+**2v2 danışma modu** bu sürümün yıldızı:
 
-Bu yalnızca görsel bir düzenleme değil — sıralama gerçekten motora işleniyor, yani
-papazı saklamak artık işe yarayan bir strateji.
+- İki takım, her takımda **2 kişi**. Takım tek renk oynar ve
+  **takımdaki herhangi biri** hamleyi yapabilir — kararı aranızda verirsiniz.
+- **FİKİR VER** (kısayol **F**): bir kareye bas, oraya gidebilecek taşlarından
+  birini seç. Takım arkadaşın tahtada **altın bir ok** görür ve isterse
+  **OYNA** ile tek tıkta oynar.
+- Fikirler **yalnızca kendi takımına** görünür — rakip takım okları asla görmez.
+- Bot takım arkadaşın da sırası gelince sana fikir fısıldar.
+- Lobide takım rozetine tıklayarak takımını seçersin; 3. kişi odaya girince
+  oda kendiliğinden 2v2 olur.
+- Renkler her oyunda değişir; seride çok puan toplayan maçı alır.
+
+Motor 5 klasik perft pozisyonuyla doğrulandı (Kiwipete dahil, 371.000+ düğüm).
+Bot alfa-beta + sessiz aramayla oynar, tek hamlelik matı asla kaçırmaz.
 
 ## Oyunlar
 
@@ -35,6 +44,7 @@ papazı saklamak artık işe yarayan bir strateji.
 | ✏️ **Çiz Babacım** | 2–8 |
 | 🃏 **UNO** | 2–6 |
 | 🕯️ **Papaz Kaçtı** | 2–6 |
+| ♟️ **Satranç** | 2 veya 4 (2v2) |
 
 Hepsi bot destekli ve online oynanabilir. Oda kur, 6 haneli kodu paylaş ya da
 arkadaş listenden tek tıkla davet et.
@@ -52,12 +62,14 @@ arkadaş listenden tek tıkla davet et.
 ## Test
 
 ```
-node tests/engine.test.js       # 141 okey
-node tests/ciz.test.js          # 124 çiz babacım
-node tests/uno.test.js          # 135 uno
-node tests/papaz.test.js        # 130 papaz kaçtı
-node tests/update.test.js       #  23 güncelleme
-node tests/sim.test.js 20       # 20 tam okey maçı
-node tests/uno-sim.test.js 20   # 20 tam uno maçı
-node tests/papaz-sim.test.js 20 # 20 tam papaz kaçtı maçı
+node tests/engine.test.js         # 141 okey
+node tests/ciz.test.js            # 124 çiz babacım
+node tests/uno.test.js            # 135 uno
+node tests/papaz.test.js          # 130 papaz kaçtı
+node tests/satranc.test.js        # 109 satranç (perft dahil)
+node tests/update.test.js         #  23 güncelleme
+node tests/sim.test.js 20         # 20 tam okey maçı
+node tests/uno-sim.test.js 20     # 20 tam uno maçı
+node tests/papaz-sim.test.js 20   # 20 tam papaz kaçtı maçı
+node tests/satranc-sim.test.js 10 # 10 tam satranç oyunu (1v1 + 2v2)
 ```

@@ -226,6 +226,63 @@
     },
   };
 
+  /* ============================================== SATRANÇ KURALLARI ==== */
+  const SATRANC_RULES_HTML = `
+<div class="rules-doc">
+  <h4>TEMELLER</h4>
+  <ul>
+    <li>Beyaz başlar, sırayla birer hamle yapılır. Amaç rakip şahı <b>mat</b> etmektir.</li>
+    <li><b>Piyon</b> düz gider, çapraz alır; ilk hamlesinde iki kare gidebilir.</li>
+    <li><b>At</b> "L" atlar, <b>Fil</b> çapraz, <b>Kale</b> düz, <b>Vezir</b> her yöne gider;
+        <b>Şah</b> bir kare oynar.</li>
+    <li>Şahın tehdit edildiği kareye oynayamazsın; şah tehditteyse önce onu kurtarmalısın.</li>
+  </ul>
+
+  <h4>ÖZEL HAMLELER</h4>
+  <ul>
+    <li><b>Rok:</b> şah iki kare kaleye doğru gider, kale üstünden atlar. Şah oynamamış,
+        kale oynamamış, ara boş ve geçilen kareler tehditsiz olmalı.</li>
+    <li><b>Geçerken alma:</b> rakip piyonu iki kare sürdüğünde yanından geçen piyonun onu
+        alabilir — ama yalnızca hemen sonraki hamlede.</li>
+    <li><b>Terfi:</b> son yataya ulaşan piyon vezir, kale, fil ya da ata dönüşür.</li>
+  </ul>
+
+  <h4>BİTİŞ</h4>
+  <ul>
+    <li><b>Mat:</b> şah tehditte ve kaçış yok — oyun biter.</li>
+    <li><b>Pat:</b> sıra sende, tehdit yok ama yasal hamle de yok — <b>berabere</b>.</li>
+    <li>Diğer bereberlikler: <b>50 hamle</b> (taş alınmadan/piyon sürülmeden),
+        <b>üç tekrar</b>, <b>yetersiz materyal</b>, <b>anlaşma</b>.</li>
+    <li><b>Süre:</b> saatin biterse kaybedersin (rakibin mat edecek taşı yoksa berabere).
+        Her hamle küçük bir ek süre kazandırır.</li>
+  </ul>
+
+  <h4>2v2 DANIŞMA MODU</h4>
+  <ul>
+    <li>İki takım, her takımda <b>2 kişi</b>. Takım tek renk oynar ve
+        <b>takımdaki herhangi biri</b> hamleyi yapabilir — kararı aranızda verin.</li>
+    <li><b>FİKİR VER</b> (kısayol <b>F</b>): bir kareye bas, oraya gidebilecek taşlarından
+        birini seç. Takım arkadaşın tahtada <b>altın bir ok</b> görür ve isterse
+        <b>OYNA</b> ile tek tıkta oynar.</li>
+    <li>Fikirler <b>yalnızca kendi takımına</b> görünür — rakip takım okları asla görmez.</li>
+    <li>Bot takım arkadaşın da sırası gelince sana fikir fısıldar.</li>
+    <li>Renkler her oyunda değişir; seri sonunda çok puan toplayan takım maçı alır.</li>
+  </ul>
+
+  <h4>KISAYOLLAR</h4>
+  <ul>
+    <li>Taşa tıkla ya da sürükle · noktalar gidebileceğin kareler</li>
+    <li><b>F</b> — fikir ver modu (2v2) &nbsp;·&nbsp; <b>Esc</b> — seçimi bırak</li>
+  </ul>
+</div>`;
+
+  w.SatrancRules = {
+    show() {
+      w.UI.modal({ title: 'SATRANÇ KURALLARI', wide: true, body: SATRANC_RULES_HTML,
+        actions: [{ label: 'ANLADIM', kind: 'btn-primary' }] });
+    },
+  };
+
   /* =========================================================== ROUTING == */
   let currentView = 'home';
 
@@ -433,7 +490,9 @@
         ? 'Üç bot rakiple hemen başla.'
         : g === 'papaz'
           ? 'Üç bot masaya otursun. Papazı kime yıkacaksın?'
-          : 'Üç bilgisayar rakibiyle anında masaya otur.';
+          : g === 'satranc'
+            ? 'Bota karşı 1v1 — lobiden 2v2 danışma moduna geçebilirsin.'
+            : 'Üç bilgisayar rakibiyle anında masaya otur.';
 
     const body = el('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } }, [
       bigChoice('🤖', 'BOTLARLA HEMEN OYNA', soloText, () => {
@@ -510,6 +569,7 @@
     $('#ctaCiz').onclick = () => { w.SFX.play('click'); playMenu('ciz'); };
     $('#ctaUno').onclick = () => { w.SFX.play('click'); playMenu('uno'); };
     $('#ctaPapaz').onclick = () => { w.SFX.play('click'); playMenu('papaz'); };
+    $('#ctaSatranc').onclick = () => { w.SFX.play('click'); playMenu('satranc'); };
     $('#ctaJoin').onclick = () => { w.SFX.play('click'); joinPrompt(); };
     $('#btnRules').onclick = () => { w.SFX.play('click'); Rules.show(); };
     $$('[data-play]').forEach((n) => {
@@ -573,6 +633,8 @@
     w.UnoTable.onLeave = leaveGame;
     w.PapazTable.onAction = (a) => w.Room.sendAction(a);
     w.PapazTable.onLeave = leaveGame;
+    w.SatrancTable.onAction = (a) => w.Room.sendAction(a);
+    w.SatrancTable.onLeave = leaveGame;
 
     /* ilk kullanıcı etkileşiminde sesi başlat (tarayıcı politikası) */
     const kick = () => { w.SFX.resume(); if (w.Store.settings().music) w.SFX.startMusic(); document.removeEventListener('pointerdown', kick); };

@@ -10,6 +10,7 @@
   const C = w.Ciz;
   const N = w.Uno;
   const K = w.Papaz;
+  const SC = w.Satranc;
 
   /* Oyun kataloğu. `fixed` = masa hep tam dolu olmalı (boşlar bota döner). */
   const GAMES = {
@@ -17,6 +18,7 @@
     ciz:     { key: 'ciz',     name: 'ÇİZ BABACIM', view: 'ciz', min: 2, max: 8, fixed: false, botFill: 4 },
     uno:     { key: 'uno',     name: 'UNO', view: 'uno', min: 2, max: 6, fixed: false, botFill: 4 },
     papaz:   { key: 'papaz',   name: 'PAPAZ KAÇTI', view: 'papaz', min: 2, max: 6, fixed: false, botFill: 4 },
+    satranc: { key: 'satranc', name: 'SATRANÇ', view: 'satranc', min: 2, max: 4, fixed: false, botFill: 2 },
   };
 
   const R = {
@@ -34,11 +36,13 @@
     ciz: null,           // çiz babacım
     uno: null,           // uno
     papaz: null,         // papaz kaçtı
+    satranc: null,       // satranç
     tickTimer: null,
     botTimer: null,
     cizBotTimers: [],
     unoTimers: [],
     papazTimers: [],
+    satrancTimers: [],
   };
 
   const spec = () => GAMES[R.game] || GAMES.okey101;
@@ -48,6 +52,7 @@
     if (game === 'ciz') return w.CizGame;
     if (game === 'uno') return w.UnoTable;
     if (game === 'papaz') return w.PapazTable;
+    if (game === 'satranc') return w.SatrancTable;
     return w.OkeyTable;
   }
   const gameUi = () => uiFor(R.game);
@@ -73,7 +78,19 @@
     if (game === 'ciz') return Object.assign({}, C.DEFAULT_RULES);
     if (game === 'uno') return Object.assign({}, N.DEFAULT_RULES, { turnSeconds: w.Store.settings().turnSeconds || 30 });
     if (game === 'papaz') return Object.assign({}, K.DEFAULT_RULES);
+    if (game === 'satranc') return Object.assign({}, SC.DEFAULT_RULES);
     return Object.assign({}, E.DEFAULT_RULES, { turnSeconds: w.Store.settings().turnSeconds || 30 });
+  }
+
+  /* Satranç: hedef oyuncu sayısı (1v1 -> 2, 2v2 -> 4). */
+  const satTarget = () => (R.rules && R.rules.mode === '2v2' ? 4 : 2);
+  const satIs2v2 = () => R.game === 'satranc' && R.rules && R.rules.mode === '2v2';
+
+  /** Satranç lobisinde takımı daha az dolu olana yeni oyuncu ver. */
+  function satBalancedTeam() {
+    const t0 = R.players.filter((p) => p && p.team === 0).length;
+    const t1 = R.players.filter((p) => p && p.team === 1).length;
+    return t0 <= t1 ? 0 : 1;
   }
 
   const BOT_NAMES = ['Cengiz', 'Yıldız', 'Kerem', 'Nazlı', 'Bora', 'Selin', 'Doruk', 'Ece', 'Tuna', 'Pınar'];
@@ -87,13 +104,14 @@
   /* ====================================================== LOBİ ÇİZİMİ === */
   function renderLobby() {
     const g = spec();
+    const cap = R.game === 'satranc' ? satTarget() : g.max;
     $('#lobbyCode').textContent = R.code || 'YEREL';
-    $('#seatCount').textContent = `${filled()}/${g.max}`;
+    $('#seatCount').textContent = `${filled()}/${cap}`;
     const gameLabel = $('.lobby-game');
     if (gameLabel) gameLabel.textContent = g.name;
 
     /* sabit masalarda tüm koltuklar, esnek masalarda dolu + 1 boş gösterilir */
-    const visible = g.fixed ? g.max : Math.min(g.max, lastFilledIndex() + 2);
+    const visible = g.fixed ? g.max : Math.min(cap, lastFilledIndex() + 2);
 
     const list = $('#seatList');
     clear(list);
@@ -112,6 +130,7 @@
             el('div', { class: 'seat-tag', text: p.isBot ? 'Bilgisayar oyuncusu' : (p.connected ? `ID ${p.id}` : 'Bağlantı koptu') }),
           ]),
           el('div', { class: 'seat-acts' }, [
+            satIs2v2() ? teamBadge(i, p) : null,
             R.isHost && p.id !== me().id
               ? el('button', { class: 'btn btn-ghost btn-sm', text: 'ÇIKAR', onclick: () => kickSeat(i) })
               : null,
@@ -144,6 +163,28 @@
     renderChat();
   }
 
+  /** Satranç 2v2 lobisinde takım rozeti: kendi takımını (host herkesinkini) değiştirebilir. */
+  function teamBadge(seat, p) {
+    const team = p.team === 1 ? 1 : 0;
+    const canToggle = R.isHost || p.id === me().id;
+    return el('button', {
+      class: `team-badge t${team}` + (canToggle ? ' can' : ''),
+      text: team === 0 ? '⚑ A TAKIMI' : '⚑ B TAKIMI',
+      title: canToggle ? 'Takım değiştir' : 'Takımı yalnızca kendisi ya da oda kurucusu değiştirebilir',
+      disabled: !canToggle,
+      onclick: () => {
+        if (!canToggle) return;
+        w.SFX.play('click');
+        if (R.isHost) {
+          R.players[seat].team = team === 1 ? 0 : 1;
+          broadcastLobby(); renderLobby();
+        } else {
+          w.Net.toHost({ t: 'team' });
+        }
+      },
+    });
+  }
+
   function lastFilledIndex() {
     let last = -1;
     for (let i = 0; i < R.players.length; i++) if (R.players[i]) last = i;
@@ -155,7 +196,16 @@
     clear(box);
     const r = R.rules || defaultRules(R.game);
 
-    const rows = R.game === 'papaz' ? [
+    const rows = R.game === 'satranc' ? [
+      ['Mod', r.mode === '2v2' ? '2v2 Danışma' : '1v1', r.mode === '2v2'
+        ? 'İki takım, takımdaki herkes hamle yapabilir'
+        : 'Klasik iki kişilik satranç'],
+      ['Süre', r.minutes ? `${r.minutes} dk + ${r.increment} sn` : 'Sınırsız',
+        'Oyuncu başına toplam süre + hamle başı ek'],
+      ['Oyun sayısı', `${r.rounds}`, 'Renkler her oyunda değişir; çoğunluk kazanır'],
+      ['Fikir verme', r.mode === '2v2' ? 'Açık' : '—',
+        'Takım arkadaşına kare + taş öner; rakip asla görmez'],
+    ] : R.game === 'papaz' ? [
       ['Oyuncu', `${spec().min}–${spec().max} kişi`, '49 kart: 3 papaz çıkarılmış deste'],
       ['El sayısı', `${r.rounds} el`, 'En az papaz kalan maçı kazanır'],
       ['Tur süresi', r.turnSeconds ? `${r.turnSeconds} sn` : 'Sınırsız', 'Süre dolarsa rastgele kart çekilir'],
@@ -190,7 +240,17 @@
     }
 
     if (!R.isHost) return;
-    if (R.game === 'papaz') {
+    if (R.game === 'satranc') {
+      box.appendChild(hostSelect('Mod', [2, 4], r.mode === '2v2' ? 4 : 2,
+        (v) => (v === 4 ? '2v2 Danışma' : '1v1'),
+        (v) => { R.rules.mode = v === 4 ? '2v2' : '1v1'; renderLobby(); }));
+      const INC = { 3: 2, 5: 0, 10: 5, 15: 10, 0: 0 };
+      box.appendChild(hostSelect('Süre', [3, 5, 10, 15, 0], r.minutes,
+        (v) => (v ? `${v} dk + ${INC[v]} sn` : 'Sınırsız'),
+        (v) => { R.rules.minutes = v; R.rules.increment = INC[v]; }));
+      box.appendChild(hostSelect('Oyun sayısı', [1, 2, 4, 6], r.rounds,
+        (v) => `${v} oyun`, (v) => { R.rules.rounds = v; }));
+    } else if (R.game === 'papaz') {
       box.appendChild(hostSelect('El sayısı', [3, 5, 7, 10], r.rounds,
         (v) => `${v} el`, (v) => { R.rules.rounds = v; }));
       box.appendChild(hostSelect('Tur süresi', [0, 15, 25, 40], r.turnSeconds,
@@ -275,6 +335,7 @@
     R.rules = defaultRules(R.game);
     R.players = new Array(spec().max).fill(null);
     R.players[0] = pub();
+    if (R.game === 'satranc') R.players[0].team = 0;
     R.hostId = me().id;
     R.mySeat = 0;
     R.chat = [];
@@ -282,6 +343,7 @@
     R.ciz = null;
     R.uno = null;
     R.papaz = null;
+    R.satranc = null;
 
     if (!localOnly) {
       w.UI.netStatus('busy', 'Oda açılıyor');
@@ -314,7 +376,7 @@
       return false;
     }
     R.mode = 'lobby'; R.isHost = false; R.local = false; R.code = c;
-    R.match = null; R.ciz = null; R.uno = null; R.papaz = null;
+    R.match = null; R.ciz = null; R.uno = null; R.papaz = null; R.satranc = null;
     w.UI.netStatus('on', 'Odada · ' + c);
     w.App.go('lobby');
     w.SFX.play('join');
@@ -329,11 +391,12 @@
       w.Net.leaveRoom();
     }
     R.mode = 'idle'; R.isHost = false; R.local = false; R.code = null;
-    R.players = []; R.match = null; R.ciz = null; R.uno = null; R.papaz = null; R.chat = [];
+    R.players = []; R.match = null; R.ciz = null; R.uno = null; R.papaz = null; R.satranc = null; R.chat = [];
     w.OkeyTable.reset();
     w.CizGame.reset();
     w.UnoTable.reset();
     w.PapazTable.reset();
+    w.SatrancTable.reset();
     w.UI.closeModal();
     w.UI.netStatus(w.Net.ready ? 'on' : 'off', w.Net.ready ? 'Çevrimiçi' : 'Çevrimdışı');
     w.App.go(toLobby ? 'games' : 'home');
@@ -341,8 +404,10 @@
 
   function addBot(seat) {
     if (!R.isHost) return;
-    if (filled() >= spec().max) return;
+    const cap = R.game === 'satranc' ? satTarget() : spec().max;
+    if (filled() >= cap) return;
     R.players[seat] = makeBot(seat);
+    if (R.game === 'satranc') R.players[seat].team = satBalancedTeam();
     w.SFX.play('join');
     sysMsg(`${R.players[seat].name} masaya oturdu (bot)`);
     broadcastLobby(); renderLobby();
@@ -413,10 +478,25 @@
     if (!R.isHost) return;
     const g = spec();
 
-    /* sabit masa: boşları botla doldur. esnek masa: azsa birkaç bot ekle */
-    if (g.fixed) {
+    if (R.game === 'satranc') {
+      /* 3+ oyuncu varsa oda kendiliğinden 2v2 olur */
+      if (filled() > 2 && R.rules.mode !== '2v2') R.rules.mode = '2v2';
+      const target = satTarget();
+      for (let i = 0; i < R.players.length && filled() < target; i++) {
+        if (!R.players[i]) {
+          R.players[i] = makeBot(i);
+          R.players[i].team = null;   // takım dengesine göre aşağıda atanır
+        }
+      }
+      if (!satAssignTeams()) {
+        w.UI.toast('Takımlar 2\'şer kişi olmalı — rozetlerden düzelt', 'err');
+        return;
+      }
+    } else if (g.fixed) {
+      /* sabit masa: boşları botla doldur */
       for (let i = 0; i < g.max; i++) if (!R.players[i]) R.players[i] = makeBot(i);
     } else if (filled() < g.min) {
+      /* esnek masa: azsa birkaç bot ekle */
       for (let i = 0; i < g.botFill && filled() < g.botFill; i++) if (!R.players[i]) R.players[i] = makeBot(i);
     }
 
@@ -430,7 +510,31 @@
     if (R.game === 'ciz') cizStart();
     else if (R.game === 'uno') unoStart();
     else if (R.game === 'papaz') papazStart();
+    else if (R.game === 'satranc') satrancStart();
     else okeyStart();
+  }
+
+  /**
+   * Satranç 2v2: insan seçimleri korunur, botlar dengeyi tamamlar.
+   * @returns {boolean} takımlar 2'şer kişi olabildi mi (1v1'de hep true)
+   */
+  function satAssignTeams() {
+    if (R.rules.mode !== '2v2') return true;
+    const ps = R.players.filter(Boolean);
+    const bots = ps.filter((p) => p.isBot);
+    let t0 = ps.filter((p) => p.team === 0).length;
+    let t1 = ps.filter((p) => p.team === 1).length;
+
+    /* takımı olmayanlar (yeni botlar dahil) az olan tarafa geçer */
+    for (const p of ps) {
+      if (p.team !== 0 && p.team !== 1) { if (t0 <= t1) { p.team = 0; t0++; } else { p.team = 1; t1++; } }
+    }
+    /* denge bozuksa yalnızca botlar taşınır — insan seçimine dokunulmaz */
+    for (const b of bots) {
+      if (t0 > 2 && b.team === 0) { b.team = 1; t0--; t1++; }
+      else if (t1 > 2 && b.team === 1) { b.team = 0; t1--; t0++; }
+    }
+    return t0 === 2 && t1 === 2;
   }
 
   /* ===================================================== 101 OKEY ====== */
@@ -1195,12 +1299,213 @@
     papazBeginRound();
   }
 
+  /* ====================================================== SATRANÇ ====== */
+  function satrancStart() {
+    R.satranc = SC.createGame(
+      R.players.map((p) => ({ id: p.id, name: p.name, color: p.color, isBot: p.isBot, team: p.team })),
+      R.rules
+    );
+    w.App.go('satranc');
+    w.SatrancTable.mount();
+    satrancBeginRound();
+  }
+
+  const satTeamName = (team) =>
+    R.satranc.players.filter((p) => p.team === team).map((p) => p.name).join(' & ');
+
+  function satrancBeginRound() {
+    SC.startRound(R.satranc, w.U.randSeed());
+    satrancPush();
+    const whites = satTeamName(R.satranc.round.whiteTeam);
+    w.SatrancTable.banner(`${R.satranc.round.no}. OYUN`, `BEYAZ: ${whites}`);
+    startSatrancTimer();
+    scheduleSatrancBot();
+  }
+
+  function satrancPush() {
+    if (!R.satranc || !R.satranc.round) return;
+    w.SatrancTable.render(SC.viewFor(R.satranc, R.mySeat));
+    if (R.local) return;
+    R.players.forEach((p, seat) => {
+      if (!p || p.isBot || p.id === me().id) return;
+      w.Net.toPlayer(p.id, { t: 'game', game: 'satranc', view: SC.viewFor(R.satranc, seat) });
+    });
+  }
+
+  function satrancEvent(ev) {
+    w.SatrancTable.playEvent(ev);
+    if (!R.local) w.Net.broadcast({ t: 'event', game: 'satranc', ev });
+  }
+
+  function satrancAction(seat, a) {
+    if (!R.satranc || !R.satranc.round) return { ok: false, reason: 'Oyun yok' };
+    let res;
+
+    switch (a.t) {
+      case 'move': {
+        res = SC.move(R.satranc, seat, a.from, a.to, a.promo);
+        if (!res.ok) return res;
+        satrancEvent({
+          t: 'move', seat, san: res.san, capt: res.capt || 0,
+          check: !res.finished && !!res.check,
+          mate: !!(res.finished && res.result && res.result.reason === 'mat'),
+        });
+        if (res.finished) { satrancFinishRound(); return res; }
+        satrancPush();
+        scheduleSatrancBot();
+        return res;
+      }
+      case 'suggest':
+        /* fikirler görünüm üzerinden yalnızca takıma gider — olay YAYINLANMAZ */
+        res = SC.suggestMove(R.satranc, seat, a.from, a.to);
+        if (res.ok) satrancPush();
+        return res;
+      case 'unsuggest':
+        res = SC.clearSuggest(R.satranc, seat);
+        if (res.ok) satrancPush();
+        return res;
+      case 'resign':
+        res = SC.resign(R.satranc, seat);
+        if (res.ok && res.finished) { satrancFinishRound(); }
+        return res;
+      case 'draw': {
+        if (a.offer) {
+          res = SC.offerDraw(R.satranc, seat);
+          if (res.ok) satrancPush();
+          return res;
+        }
+        res = SC.answerDraw(R.satranc, seat, !!a.accept);
+        if (!res.ok) return res;
+        if (res.finished) { satrancFinishRound(); return res; }
+        satrancPush();
+        return res;
+      }
+      default:
+        return { ok: false, reason: 'Bilinmeyen hamle' };
+    }
+  }
+
+  const satrancAutoSeat = (seat) => {
+    const p = R.players[seat];
+    return !!p && (p.isBot || p.connected === false);
+  };
+
+  function clearSatrancTimers() {
+    for (const t of R.satrancTimers) clearTimeout(t);
+    R.satrancTimers = [];
+  }
+
+  function scheduleSatrancBot() {
+    clearSatrancTimers();
+    if (!R.isHost || !R.satranc || !R.satranc.round || R.satranc.round.finished) return;
+    const rd = R.satranc.round;
+    const side = rd.st.turn;
+    const seats = SC.seatsOfSide(R.satranc, rd, side === SC.W ? SC.W : SC.BL);
+    const sanCount = rd.sanHistory.length;
+
+    /* takımda bağlı bir insan varsa hamleyi o yapar; bot araya girmez */
+    const humanSeat = seats.find((s) => !satrancAutoSeat(s));
+    if (humanSeat !== undefined) {
+      /* ...ama 2v2'de bot takım arkadaşı FİKİR verir — özellik botlarla da yaşasın */
+      if (R.satranc.mode === '2v2') {
+        const botSeat = seats.find((s) => R.players[s] && R.players[s].isBot);
+        if (botSeat !== undefined && !rd.suggests[botSeat]) {
+          R.satrancTimers.push(setTimeout(() => {
+            if (!R.satranc || !R.satranc.round || R.satranc.round.finished) return;
+            if (R.satranc.round.sanHistory.length !== sanCount) return;
+            const mv = w.SatrancBot.pickMove(R.satranc.round.st, 2, w.U.randSeed());
+            if (mv) {
+              const r = SC.suggestMove(R.satranc, botSeat, mv.from, mv.to);
+              if (r.ok) satrancPush();
+            }
+          }, w.SatrancBot.thinkMs(2)));
+        }
+      }
+      return;
+    }
+
+    const seat = seats.find((s) => satrancAutoSeat(s));
+    if (seat === undefined) return;
+    R.satrancTimers.push(setTimeout(() => {
+      if (!R.satranc || !R.satranc.round || R.satranc.round.finished) return;
+      if (R.satranc.round.sanHistory.length !== sanCount) return;
+      const mv = w.SatrancBot.pickMove(R.satranc.round.st, 2, w.U.randSeed());
+      if (mv) satrancAction(seat, { t: 'move', from: mv.from, to: mv.to, promo: mv.promo });
+    }, w.SatrancBot.thinkMs(2)));
+  }
+
+  function startSatrancTimer() {
+    stopTimers();
+    R.tickTimer = setInterval(satrancTick, 500);
+  }
+
+  function satrancTick() {
+    if (!R.isHost || !R.satranc || !R.satranc.round || R.satranc.round.finished) return;
+
+    /* bayrak düştü mü */
+    const end = SC.tickClock(R.satranc);
+    if (end) { satrancFinishRound(); return; }
+
+    /* güvenlik ağı: bot sırasıysa ama zamanlayıcı yoksa yeniden kur */
+    if (!R.satrancTimers.length) {
+      const rd = R.satranc.round;
+      const seats = SC.seatsOfSide(R.satranc, rd, rd.st.turn);
+      if (seats.every((s) => satrancAutoSeat(s))) scheduleSatrancBot();
+    }
+  }
+
+  function satrancFinishRound() {
+    const rd = R.satranc.round;
+    const applied = SC.applyResult(R.satranc);
+    stopTimers();
+    clearSatrancTimers();
+    satrancPush();
+
+    const winnerTeam = rd.result.winnerTeam;
+    satrancEvent({
+      t: 'end', reason: rd.result.reason,
+      winnerName: winnerTeam === null || winnerTeam === undefined ? null : satTeamName(winnerTeam),
+    });
+
+    const players = R.satranc.players.map((p) => ({
+      seat: p.seat, name: p.name, id: p.id, color: p.color, team: p.team, isBot: p.isBot,
+    }));
+
+    w.Store.bumpStat('satranc', 'played', 1);
+    if (winnerTeam !== null && winnerTeam === SC.teamOf(R.satranc, R.mySeat)) {
+      w.Store.bumpStat('satranc', 'won', 1);
+    }
+
+    if (!R.local) {
+      w.Net.broadcast({
+        t: 'result', game: 'satranc', result: rd.result, seats: players,
+        over: applied.over, match: applied.over ? satrancMatchPayload() : null,
+      });
+    }
+    if (applied.over) setTimeout(() => w.SatrancTable.showMatchOver(satrancMatchPayload(), R.mySeat), 1300);
+    else setTimeout(() => w.SatrancTable.showResult(rd.result, players, () => satrancNextRound(), true), 1300);
+  }
+
+  const satrancMatchPayload = () => ({
+    winner: R.satranc.winner,
+    score: R.satranc.score.slice(),
+    players: R.satranc.players.map((p) => ({ seat: p.seat, name: p.name, team: p.team })),
+  });
+
+  function satrancNextRound() {
+    if (!R.isHost) return;
+    w.UI.closeModal();
+    if (!R.local) w.Net.broadcast({ t: 'nextRound' });
+    satrancBeginRound();
+  }
+
   function stopTimers() {
     clearInterval(R.tickTimer); R.tickTimer = null;
     clearTimeout(R.botTimer); R.botTimer = null;
     clearCizBotTimers();
     clearUnoTimers();
     clearPapazTimers();
+    clearSatrancTimers();
   }
 
   /* ================================================ AĞ OLAY BAĞLARI ==== */
@@ -1217,6 +1522,7 @@
         if (R.game === 'ciz') { cizPush(); scheduleCizBots(); }
         else if (R.game === 'uno') { unoPush(); scheduleUnoBot(); }
         else if (R.game === 'papaz') { papazPush(); schedulePapazBot(); }
+        else if (R.game === 'satranc') { satrancPush(); scheduleSatrancBot(); }
         else { okeyPush(); scheduleBot(); }
       } else {
         const name = R.players[seat].name;
@@ -1242,7 +1548,8 @@
               conn.send({ t: 'start', game: R.game, players: R.players });
               const view = R.game === 'ciz' ? C.viewFor(R.ciz, old)
                 : R.game === 'uno' ? N.viewFor(R.uno, old)
-                : R.game === 'papaz' ? papazView(old) : okeyView(old);
+                : R.game === 'papaz' ? papazView(old)
+                : R.game === 'satranc' ? SC.viewFor(R.satranc, old) : okeyView(old);
               w.Net.toPlayer(from, { t: 'game', game: R.game, view });
             }
             broadcastLobby(); renderLobby();
@@ -1256,6 +1563,14 @@
             id: from, name: p.name || from, color: p.color || 0,
             acc: p.acc || null, isBot: false, connected: true,
           };
+          if (R.game === 'satranc') {
+            R.players[seat].team = satBalancedTeam();
+            /* üçüncü kişi geldiyse oda kendiliğinden 2v2 olur */
+            if (filled() > 2 && R.rules.mode !== '2v2') {
+              R.rules.mode = '2v2';
+              sysMsg('Oda 2v2 danışma moduna geçti');
+            }
+          }
           sysMsg(`${R.players[seat].name} masaya oturdu`);
           w.SFX.play('join');
           broadcastLobby(); renderLobby();
@@ -1274,8 +1589,17 @@
           const res = R.game === 'ciz' ? cizAction(seat, msg.action || {})
             : R.game === 'uno' ? unoAction(seat, msg.action || {})
             : R.game === 'papaz' ? papazAction(seat, msg.action || {})
+            : R.game === 'satranc' ? satrancAction(seat, msg.action || {})
             : okeyAction(seat, msg.action || {});
           if (!res || !res.ok) w.Net.toPlayer(from, { t: 'error', msg: (res && res.reason) || 'Geçersiz hamle' });
+          break;
+        }
+        case 'team': {
+          /* satranç lobisinde oyuncu kendi takımını değiştirmek istiyor */
+          const seat = R.players.findIndex((x) => x && x.id === from);
+          if (seat === -1 || R.game !== 'satranc' || R.mode !== 'lobby') return;
+          R.players[seat].team = R.players[seat].team === 1 ? 0 : 1;
+          broadcastLobby(); renderLobby();
           break;
         }
         case 'leave':
@@ -1320,7 +1644,7 @@
         }
         case 'result': {
           const tbl = uiFor(msg.game) || w.OkeyTable;
-          const delay = msg.game === 'papaz' ? 1400 : 800;
+          const delay = msg.game === 'papaz' ? 1400 : msg.game === 'satranc' ? 1300 : 800;
           if (msg.over && msg.match) setTimeout(() => tbl.showMatchOver(msg.match, R.mySeat), delay);
           else setTimeout(() => tbl.showResult(msg.result, msg.seats, null, false), delay);
           break;
@@ -1352,6 +1676,7 @@
       const res = R.game === 'ciz' ? cizAction(R.mySeat, action)
         : R.game === 'uno' ? unoAction(R.mySeat, action)
         : R.game === 'papaz' ? papazAction(R.mySeat, action)
+        : R.game === 'satranc' ? satrancAction(R.mySeat, action)
         : okeyAction(R.mySeat, action);
       if (!res || !res.ok) w.UI.toast((res && res.reason) || 'Geçersiz hamle', 'err');
     } else {

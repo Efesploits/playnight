@@ -1,8 +1,9 @@
 # 🎴 Play Night
 
 Arkadaşlarınla oyun gecesi. Sinematik açılış, mavi-siyah tema ve dört oyun:
-tam kurallarıyla **101 Okey**, Gartic Phone tarzı **Çiz Babacım**, **UNO** ve
-3B masada oynanan **Papaz Kaçtı**. Windows masaüstü uygulaması (Electron).
+tam kurallarıyla **101 Okey**, Gartic Phone tarzı **Çiz Babacım**, **UNO**,
+3B masada oynanan **Papaz Kaçtı** ve 2v2 danışma modlu **Satranç**.
+Windows masaüstü uygulaması (Electron).
 
 **Port açmana gerek yok.** Bağlantı eşler arası (WebRTC) kurulur; modem/router ayarı,
 port yönlendirme, sabit IP gerekmez.
@@ -42,11 +43,13 @@ Sadece taşınabilir sürüm için: `npm run dist:portable`
 node tests/engine.test.js       # 141 okey kural testi
 node tests/ciz.test.js          # 124 çiz babacım testi
 node tests/uno.test.js          # 135 uno kural testi
-node tests/papaz.test.js        # 113 papaz kaçtı testi
+node tests/papaz.test.js        # 130 papaz kaçtı testi
+node tests/satranc.test.js      # 109 satranç testi (perft dahil)
 node tests/update.test.js       #  23 güncelleme mantığı testi
 node tests/sim.test.js 20       # 20 tam okey maçı
 node tests/uno-sim.test.js 20   # 20 tam uno maçı
 node tests/papaz-sim.test.js 20 # 20 tam papaz kaçtı maçı
+node tests/satranc-sim.test.js 10 # 10 tam satranç oyunu (1v1 + 2v2)
 ```
 
 ---
@@ -59,6 +62,7 @@ node tests/papaz-sim.test.js 20 # 20 tam papaz kaçtı maçı
 | **Çiz Babacım** | 2–8 | Yaz → çiz → tahmin et → çiz… Cümle elden ele geçtikçe tanınmaz olur, sonunda albüm açılır. |
 | **UNO** | 2–6 | 108 kart, renk/sayı eşleştir. Joker+4 blöfü ve itirazı, UNO deme cezası, 500 puana yarış. |
 | **Papaz Kaçtı** | 2–6 | Karanlık odada, tepeden sarkan ampulün altında **3B masa**. Çift at, sağındakinden kart çek, papazdan kaç. |
+| **Satranç** | 2 / 4 | Tam FIDE kuralları, satranç saati, SAN hamle listesi. **2v2 danışma:** takım arkadaşına kare + taş öner (FİKİR VER), yalnızca takımın görür. |
 
 ## Nasıl oynanır
 
@@ -144,6 +148,23 @@ altında yuvarlak keçe masa. Oyuncular masanın etrafında **3B kafalar** olara
 
 Three.js `vendor/three.min.js` olarak uygulamayla birlikte gelir; internet gerekmez.
 WebGL çalışmazsa oyun düz arka planla sorunsuz oynanmaya devam eder.
+
+## Satranç kuralları
+
+Tam FIDE kural seti: rok, geçerken alma, terfi, pat, 50 hamle, üç tekrar,
+yetersiz materyal. Hamle üretici **perft** ile 5 klasik pozisyonda doğrulanır
+(başlangıç d4 = 197.281, Kiwipete d3 = 97.862 — hepsi birebir).
+
+- **Satranç saati:** oyuncu başına süre + hamle başı artış (3+2 / 5+0 / 10+5 / 15+10 / sınırsız).
+  Bayrak düşerse kaybedersin; rakipte mat edecek taş yoksa berabere.
+- **1v1** klasik oyundur. **2v2 danışma** modunda iki takım vardır, her takımda 2 kişi;
+  takım tek renk oynar ve **takımdaki herhangi biri** hamleyi yapabilir.
+- **FİKİR VER** (`F`): bir kareye bas, oraya gidebilecek taşlarından birini seç.
+  Takım arkadaşın tahtada **altın bir ok** görür ve **OYNA** ile tek tıkta oynayabilir.
+  Fikirler görünüme yalnızca **kendi takımın için** eklenir (`satranc/engine.js` → `viewFor`);
+  rakip takıma giden pakette bu veri hiç yoktur. Bot takım arkadaşı da fikir önerir.
+- Renkler her oyunda değişir; seri (varsayılan 2 oyun) sonunda çok puan toplayan kazanır.
+- Bot alfa-beta + sessiz arama (yalnız alışlar) + taş-kare tablolarıyla oynar.
 
 ## Güncelleme
 
@@ -282,6 +303,9 @@ src/js/papaz/engine.js Papaz Kaçtı kural motoru (saf)
 src/js/papaz/bot.js    botlar: kart seçimi, tell'ler, laf atmalar
 src/js/papaz/scene3d.js 3B oda, ampul, masa ve karakterler (Three.js)
 src/js/papaz/table.js  masa arayüzü, çekme sahnesi, isim/balon katmanı
+src/js/satranc/engine.js satranç kural motoru (0x88, perft'le doğrulanmış, saf)
+src/js/satranc/bot.js  satranç botu (alfa-beta + sessiz arama)
+src/js/satranc/table.js tahta, saatler, hamle listesi, FİKİR VER katmanı
 src/js/update.js       sürüm kontrolü ve kurulum arayüzü
 src/js/net.js          WebRTC / PeerJS taşıma katmanı
 src/js/room.js         lobi + oyun oturumları (host otoritesi, iki oyunu da taşır)
