@@ -1,0 +1,80 @@
+/* =============================================================================
+ *  PLAY NIGHT — M3RANT kartı
+ *  Oyunun kendisi ayrı bir pencerede çalışır; burada yalnızca oyunlar
+ *  listesindeki kartın görseli var. Renkler M3RANT'ın sıcak paletinden.
+ * ========================================================================== */
+
+.m3-card .gc-art {
+  background: linear-gradient(180deg, rgba(140, 78, 24, .38), transparent);
+}
+.m3-card:hover { border-color: rgba(244, 164, 58, .5) !important; }
+.m3-card .gc-glow {
+  background: radial-gradient(340px 180px at 50% 0%, rgba(244, 164, 58, .3), transparent 70%);
+}
+.m3-card .chip-live {
+  color: #ffd79a;
+  border-color: rgba(244, 164, 58, .45);
+  background: rgba(244, 164, 58, .12);
+}
+
+.m3-art { position: relative; display: block; overflow: hidden; }
+
+/* nişangâh */
+.m3-scope {
+  position: absolute; left: 50%; top: 50%;
+  width: 66px; height: 66px; margin: -33px 0 0 -33px;
+  border-radius: 50%;
+  border: 3px solid #f4a43a;
+  box-shadow: 0 0 22px rgba(244, 164, 58, .45), inset 0 0 14px rgba(244, 164, 58, .2);
+}
+.m3-scope::before, .m3-scope::after {
+  content: ''; position: absolute; background: #f4a43a;
+}
+.m3-scope::before { left: 50%; top: -13px; width: 3px; height: 14px; margin-left: -1.5px; box-shadow: 0 76px 0 #f4a43a; }
+.m3-scope::after { top: 50%; left: -13px; height: 3px; width: 14px; margin-top: -1.5px; box-shadow: 76px 0 0 #f4a43a; }
+.m3-card:hover .m3-scope { animation: m3Scope 1.4s var(--ease-in-out) infinite; }
+@keyframes m3Scope { 50% { transform: scale(.9); } }
+
+/* merkezdeki spike */
+.m3-spike {
+  position: absolute; left: 50%; top: 50%;
+  width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px;
+  border-radius: 3px;
+  background: #ff5f4d;
+  box-shadow: 0 0 16px rgba(255, 95, 77, .9);
+  animation: m3Blink 1.1s steps(2) infinite;
+}
+@keyframes m3Blink { 50% { opacity: .35; } }
+
+/* iki yumuşak karakter silüeti — M3RANT'ın "blob" görünümü */
+.m3-blob {
+  position: absolute; bottom: 8px;
+  width: 26px; height: 34px;
+  border-radius: 13px 13px 9px 9px;
+  opacity: .85;
+}
+.m3-blob::after {
+  content: ''; position: absolute; left: 50%; top: -9px;
+  width: 18px; height: 18px; margin-left: -9px;
+  border-radius: 50%; background: inherit;
+}
+.m3-blob.b1 { left: 26px; background: #6fd3c0; transform: rotate(-6deg); }
+.m3-blob.b2 { right: 26px; background: #c98bf0; transform: rotate(6deg); }
+.m3-card:hover .m3-blob.b1 { animation: m3Bob 1.6s var(--ease-in-out) infinite; }
+.m3-card:hover .m3-blob.b2 { animation: m3Bob 1.6s var(--ease-in-out) .3s infinite; }
+@keyframes m3Bob { 50% { transform: translateY(-5px) rotate(0deg); } }
+
+/* ana sayfadaki düğme M3RANT rengini alsın */
+#ctaM3rant:hover { border-color: rgba(244, 164, 58, .55); color: #ffd79a; }
+
+/* açılış bilgisi kutusu */
+.m3-launch { display: flex; flex-direction: column; gap: 12px; }
+.m3-launch .m3-keys {
+  display: grid; grid-template-columns: auto 1fr; gap: 6px 14px;
+  font-size: 13px; align-items: center;
+}
+.m3-launch .m3-keys b {
+  font-family: var(--font-mono); font-size: 12px;
+  border: 1px solid rgba(122, 182, 255, .25); border-radius: 6px;
+  padding: 2px 7px; color: var(--blue-300); justify-self: start;
+}

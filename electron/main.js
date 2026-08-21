@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, shell, screen, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen, dialog, protocol, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -141,6 +141,129 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
+/* ------------------------------------------------------------------ */
+/* M3RANT — kendi penceresinde açılan 5v5 nişancı oyunu                */
+/*                                                                     */
+/* M3RANT ayrı bir Vite yapısıdır ve `<script type="module">` kullanır. */
+/* Modül betikleri CORS'a tabidir, file:// bunu geçemez — bu yüzden     */
+/* kendi ayrıcalıklı `app://` şemasıyla sunulur. Ayrıca standart bir    */
+/* şema olması sayfayı güvenli bağlam yapar; WebRTC bunu bekler.        */
+/*                                                                     */
+/* Ayrı pencere bilinçli bir tercih: nişan kilidi (pointer lock) gömülü */
+/* bir çerçevenin izinlerine takılmaz, oyun tüm pencereyi kullanır ve   */
+/* kendi Three.js sürümü Play Night'ınkiyle çakışmaz.                   */
+/* ------------------------------------------------------------------ */
+const M3_ROOT = path.join(__dirname, '..', 'vendor', 'm3rant');
+let m3Window = null;
+
+const M3_MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.wasm': 'application/wasm',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+};
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
+  },
+]);
+
+function serveM3(request) {
+  let rel = decodeURIComponent(new URL(request.url).pathname);
+  if (rel === '' || rel === '/') rel = '/index.html';
+
+  /* Yolu çöz, sonra kökten çıkmadığını doğrula: paket salt okunur olsa da
+     dizin atlama sayfaya rastgele dosya okutmamalı. */
+  const file = path.normalize(path.join(M3_ROOT, rel));
+  if (!file.startsWith(path.normalize(M3_ROOT))) return new Response('forbidden', { status: 403 });
+
+  try {
+    const headers = {
+      'content-type': M3_MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
+    };
+    /* Sayfaya kendi CSP'sini ver. 'wasm-unsafe-eval' Rapier fizik motorunun
+       WASM'ı için, blob: ses/doku üretimi için, wss: PeerJS işaretleşmesi
+       ve STUN/TURN için gerekli. eval() hiçbir yerde açılmıyor. */
+    if (headers['content-type'].startsWith('text/html')) {
+      headers['content-security-policy'] = [
+        "default-src 'self'",
+        "script-src 'self' 'wasm-unsafe-eval'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob:",
+        "media-src 'self' data: blob:",
+        "font-src 'self' data:",
+        "worker-src 'self' blob:",
+        "connect-src 'self' ws: wss: https: data: blob:",
+      ].join('; ');
+    }
+    return new Response(fs.readFileSync(file), { status: 200, headers });
+  } catch {
+    return new Response('not found', { status: 404 });
+  }
+}
+
+function openM3rant(opts) {
+  if (!fs.existsSync(path.join(M3_ROOT, 'index.html'))) {
+    return { ok: false, reason: 'M3RANT dosyaları bulunamadı' };
+  }
+  if (m3Window && !m3Window.isDestroyed()) {
+    if (m3Window.isMinimized()) m3Window.restore();
+    m3Window.focus();
+    return { ok: true, focused: true };
+  }
+
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
+  m3Window = new BrowserWindow({
+    width: Math.min(1600, Math.round(sw * 0.92)),
+    height: Math.min(900, Math.round(sh * 0.92)),
+    minWidth: 1024,
+    minHeight: 640,
+    show: false,
+    backgroundColor: '#17110b',
+    title: 'M3RANT',
+    icon: path.join(__dirname, '..', 'build', 'icon.ico'),
+    autoHideMenuBar: true,
+    webPreferences: {
+      /* Oyunun hiçbir Node API'sine ihtiyacı yok, hiçbiri verilmiyor. */
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      backgroundThrottling: false,
+    },
+  });
+  m3Window.setMenuBarVisibility(false);
+  m3Window.once('ready-to-show', () => m3Window && m3Window.show());
+
+  /* Nişan kilidi ve tam ekran sorulmadan verilir: istek yalnızca kendi
+     yerel sayfamızdan gelir ve bu bir birinci şahıs nişancı oyunu. */
+  m3Window.webContents.session.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === 'pointerLock' || permission === 'fullscreen');
+  });
+  m3Window.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  m3Window.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    console.error(`[m3rant] yuklenemedi ${url}: ${desc} (${code})`);
+  });
+
+  /* Oyuncu adını devret: M3RANT bunu yalnızca İLK profili oluştururken
+     kullanır, sonra oyuncunun kendi seçimi geçerlidir. */
+  const name = String((opts && opts.name) || '').trim().slice(0, 18);
+  m3Window.loadURL('app://m3rant/index.html' + (name ? '?name=' + encodeURIComponent(name) : ''));
+
+  m3Window.on('closed', () => { m3Window = null; });
+  return { ok: true };
+}
+
 /* Tek örnek: ikinci kez açılırsa mevcut pencereyi öne getir */
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -153,6 +276,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
+    protocol.handle('app', serveM3);
     createWindow();
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -444,6 +568,17 @@ ipcMain.handle('update:install', async (_e, filePath) => {
   if (err) return { ok: false, reason: err };
   setTimeout(() => app.quit(), 1200);
   return { ok: true };
+});
+
+ipcMain.handle('m3rant:open', (_e, opts) => openM3rant(opts || {}));
+
+ipcMain.handle('m3rant:info', () => {
+  const out = { available: fs.existsSync(path.join(M3_ROOT, 'index.html')), version: null, open: false };
+  out.open = !!(m3Window && !m3Window.isDestroyed());
+  try {
+    out.version = JSON.parse(fs.readFileSync(path.join(M3_ROOT, 'build.json'), 'utf8')).version || null;
+  } catch { /* sürüm dosyası yoksa önemsiz */ }
+  return out;
 });
 
 ipcMain.handle('dialog:message', async (_e, opts) => {

@@ -541,6 +541,64 @@
     setTimeout(() => input.focus(), 80);
   }
 
+  /* =========================================================== M3RANT == */
+  /**
+   * M3RANT kendi penceresinde açılır. Ayrı pencere bilinçli bir tercihtir:
+   * nişan kilidi gömülü bir çerçevenin izinlerine takılmaz, oyun tüm pencereyi
+   * kullanır ve kendi Three.js sürümü Papaz Kaçtı'nınkiyle çakışmaz.
+   */
+  async function launchM3rant() {
+    if (!w.pn || !w.pn.m3rant) {
+      w.UI.modal({
+        title: 'M3RANT',
+        sub: 'Bu oyun masaüstü uygulamasında çalışır.',
+        body: el('p', { class: 'muted small', text:
+          'M3RANT tarayıcı önizlemesinde değil, Play Night uygulamasının içinde açılır. '
+          + 'Kurulumu yaptıysan uygulamayı açıp Oyunlar sekmesinden başlatabilirsin.' }),
+        actions: [{ label: 'ANLADIM', kind: 'btn-primary' }],
+      });
+      return;
+    }
+
+    const info = await w.pn.m3rant.info();
+    if (!info.available) {
+      w.UI.toast('M3RANT dosyaları bulunamadı', 'err');
+      return;
+    }
+    if (info.open) {
+      const r = await w.pn.m3rant.open({});
+      if (r && r.focused) w.UI.toast('M3RANT zaten açık, öne getirildi', 'info');
+      return;
+    }
+
+    const body = el('div', { class: 'm3-launch' }, [
+      el('p', { class: 'muted small', text:
+        '5v5 taktiksel nişancı — bomba kur ve imha et. Kendi penceresinde açılır, '
+        + 'Play Night arkada açık kalır. Kapatınca buraya dönersin.' }),
+      el('div', { class: 'm3-keys' }, [
+        el('b', { text: 'WASD' }), el('span', { text: 'Hareket' }),
+        el('b', { text: 'Fare 1 / 2' }), el('span', { text: 'Ateş / nişan al' }),
+        el('b', { text: 'F' }), el('span', { text: 'Bomba kur, imha et, yerden al' }),
+        el('b', { text: 'Shift / Ctrl' }), el('span', { text: 'Sessiz yürü / eğil' }),
+      ]),
+      el('p', { class: 'muted small', text: 'İlk açılışta adın Play Night profilinden alınır.' }),
+    ]);
+
+    w.UI.modal({
+      title: 'M3RANT' + (info.version ? ' v' + info.version : ''),
+      sub: 'Oyun ayrı bir pencerede başlatılacak.',
+      body,
+      actions: [
+        { label: 'VAZGEÇ', kind: 'btn-ghost' },
+        { label: 'BAŞLAT', kind: 'btn-primary', onClick: async () => {
+          w.SFX.play('open');
+          const res = await w.pn.m3rant.open({ name: w.Store.profile().name });
+          if (!res || !res.ok) w.UI.toast((res && res.reason) || 'M3RANT açılamadı', 'err');
+        } },
+      ],
+    });
+  }
+
   /* ============================================================== BAĞLA = */
   function wireUI() {
     /* pencere düğmeleri */
@@ -570,10 +628,15 @@
     $('#ctaUno').onclick = () => { w.SFX.play('click'); playMenu('uno'); };
     $('#ctaPapaz').onclick = () => { w.SFX.play('click'); playMenu('papaz'); };
     $('#ctaSatranc').onclick = () => { w.SFX.play('click'); playMenu('satranc'); };
+    $('#ctaM3rant').onclick = () => { w.SFX.play('click'); launchM3rant(); };
     $('#ctaJoin').onclick = () => { w.SFX.play('click'); joinPrompt(); };
     $('#btnRules').onclick = () => { w.SFX.play('click'); Rules.show(); };
     $$('[data-play]').forEach((n) => {
       n.onclick = (e) => { e.stopPropagation(); w.SFX.play('click'); playMenu(n.dataset.play); };
+    });
+    /* Oda kurmayan, doğrudan açılan oyunlar (M3RANT kendi ağını kullanır) */
+    $$('[data-launch]').forEach((n) => {
+      n.onclick = (e) => { e.stopPropagation(); w.SFX.play('click'); launchM3rant(); };
     });
 
     /* kimlik kopyalama */

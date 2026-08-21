@@ -1,4 +1,4 @@
-# Play Night v1.3.0
+# Play Night v1.4.0
 
 Arkadaşlarınla oyun gecesi. **Port açmana gerek yok** — bağlantı eşler arası (WebRTC) kurulur.
 
@@ -14,27 +14,25 @@ Arkadaşlarınla oyun gecesi. **Port açmana gerek yok** — bağlantı eşler a
 
 ## Yenilikler
 
-### ♟️ SATRANÇ — 1v1 ve 2v2 danışma modu
+### 🎯 M3RANT artık Play Night'ın içinde
 
-Tam kurallı satranç: rok, geçerken alma, terfi, pat, 50 hamle, üç tekrar,
-yetersiz materyal — hepsi var. Satranç saati (süre + hamle başı artış),
-SAN hamle listesi, alınan taşlar ve materyal farkı, sürükle ya da tıkla oyna.
+5v5 taktiksel nişancı oyunu **M3RANT** uygulamayla birlikte geliyor. Oyunlar
+sekmesinden **BAŞLAT**'a bastığında kendi penceresinde açılıyor:
 
-**2v2 danışma modu** bu sürümün yıldızı:
+- **8 ajan**, dörder yetenekle — dumanlar, flaşlar, duvarlar, tuzaklar, ultiler
+- **3 harita**: Basecamp, Ridge, Hollow
+- **18 silah**, öğrenilebilir tepme desenleri, duvar delme, mesafeye göre hasar
+- Alım turu, kredi, bomba kurma/imha, 13 galibiyete ilk ulaşan kazanır
+- Dört zorlukta **botlar** ve altı haneli oda koduyla **online** oynanış
+- Karakterler, kaplamalar, sesler — hepsi kodla üretiliyor, tek bir görsel dosya yok
 
-- İki takım, her takımda **2 kişi**. Takım tek renk oynar ve
-  **takımdaki herhangi biri** hamleyi yapabilir — kararı aranızda verirsiniz.
-- **FİKİR VER** (kısayol **F**): bir kareye bas, oraya gidebilecek taşlarından
-  birini seç. Takım arkadaşın tahtada **altın bir ok** görür ve isterse
-  **OYNA** ile tek tıkta oynar.
-- Fikirler **yalnızca kendi takımına** görünür — rakip takım okları asla görmez.
-- Bot takım arkadaşın da sırası gelince sana fikir fısıldar.
-- Lobide takım rozetine tıklayarak takımını seçersin; 3. kişi odaya girince
-  oda kendiliğinden 2v2 olur.
-- Renkler her oyunda değişir; seride çok puan toplayan maçı alır.
+Ayrı pencerede açılması bilinçli: nişan kilidi (pointer lock) gömülü bir
+çerçevenin izinlerine takılmıyor, oyun tüm pencereyi kullanıyor ve kendi
+Three.js sürümü Papaz Kaçtı'nın 3B masasıyla çakışmıyor. Play Night arkada
+açık kalıyor, oyunu kapatınca geri dönüyorsun.
 
-Motor 5 klasik perft pozisyonuyla doğrulandı (Kiwipete dahil, 371.000+ düğüm).
-Bot alfa-beta + sessiz aramayla oynar, tek hamlelik matı asla kaçırmaz.
+**İlk açılışta adın Play Night profilinden alınıyor.** Sonrasında M3RANT içinde
+adını değiştirirsen o geçerli olur — Play Night bir daha üstüne yazmaz.
 
 ## Oyunlar
 
@@ -45,15 +43,16 @@ Bot alfa-beta + sessiz aramayla oynar, tek hamlelik matı asla kaçırmaz.
 | 🃏 **UNO** | 2–6 |
 | 🕯️ **Papaz Kaçtı** | 2–6 |
 | ♟️ **Satranç** | 2 veya 4 (2v2) |
+| 🎯 **M3RANT** | 5v5 |
 
-Hepsi bot destekli ve online oynanabilir. Oda kur, 6 haneli kodu paylaş ya da
-arkadaş listenden tek tıkla davet et.
+Kart ve masa oyunları bot destekli ve oda koduyla online oynanır. M3RANT kendi
+ağını ve oda kodunu kullanır.
 
 ## Bilinen sınırlar
 
 - Yalnızca Windows x64
 - Uygulama imzalı değil (SmartScreen uyarısı)
-- 3B sahne WebGL ister; çalışmazsa Papaz Kaçtı düz arka planla sorunsuz oynanır
+- M3RANT ve Papaz Kaçtı'nın 3B sahnesi WebGL ister
 - Çok kısıtlı ağlarda yedek TURN sunucuları kamusal/ücretsizdir;
   **Ayarlar → Bağlantı**'dan kendi TURN sunucunu tanımlayabilirsin
 - Arkadaş listesinde çevrimiçi görünmek için iki tarafın da uygulamayı açık tutması gerekir
@@ -72,4 +71,6 @@ node tests/sim.test.js 20         # 20 tam okey maçı
 node tests/uno-sim.test.js 20     # 20 tam uno maçı
 node tests/papaz-sim.test.js 20   # 20 tam papaz kaçtı maçı
 node tests/satranc-sim.test.js 10 # 10 tam satranç oyunu (1v1 + 2v2)
+npm run smoke:m3rant              # M3RANT açılıyor ve maç başlıyor mu
+npm run smoke:launch              # Play Night'tan başlatma zinciri
 ```

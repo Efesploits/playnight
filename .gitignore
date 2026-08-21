@@ -3,7 +3,11 @@ dist/
 # update.json bilerek takip edilir: uygulama sürüm bilgisini oradan okur
 build/icon.ico
 src/assets/logo.png
-vendor/
+# vendor/ node_modules'den uretilir (peerjs, three) -> izlenmez.
+# vendor/m3rant ise ayri bir depodan gelen derlenmis oyun; depo tek basina
+# derlenebilsin diye o izlenir (bkz. scripts/sync-m3rant.js).
+vendor/*
+!vendor/m3rant/
 *.log
 .DS_Store
 Thumbs.db

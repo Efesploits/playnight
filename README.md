@@ -2,8 +2,8 @@
 
 Arkadaşlarınla oyun gecesi. Sinematik açılış, mavi-siyah tema ve dört oyun:
 tam kurallarıyla **101 Okey**, Gartic Phone tarzı **Çiz Babacım**, **UNO**,
-3B masada oynanan **Papaz Kaçtı** ve 2v2 danışma modlu **Satranç**.
-Windows masaüstü uygulaması (Electron).
+3B masada oynanan **Papaz Kaçtı**, 2v2 danışma modlu **Satranç** ve 5v5
+taktiksel nişancı **M3RANT**. Windows masaüstü uygulaması (Electron).
 
 **Port açmana gerek yok.** Bağlantı eşler arası (WebRTC) kurulur; modem/router ayarı,
 port yönlendirme, sabit IP gerekmez.
@@ -50,6 +50,8 @@ node tests/sim.test.js 20       # 20 tam okey maçı
 node tests/uno-sim.test.js 20   # 20 tam uno maçı
 node tests/papaz-sim.test.js 20 # 20 tam papaz kaçtı maçı
 node tests/satranc-sim.test.js 10 # 10 tam satranç oyunu (1v1 + 2v2)
+npm run smoke:m3rant            # M3RANT açılıyor ve maç başlıyor mu
+npm run smoke:launch            # Play Night'tan M3RANT başlatma zinciri
 ```
 
 ---
@@ -63,6 +65,7 @@ node tests/satranc-sim.test.js 10 # 10 tam satranç oyunu (1v1 + 2v2)
 | **UNO** | 2–6 | 108 kart, renk/sayı eşleştir. Joker+4 blöfü ve itirazı, UNO deme cezası, 500 puana yarış. |
 | **Papaz Kaçtı** | 2–6 | Karanlık odada, tepeden sarkan ampulün altında **3B masa**. Çift at, sağındakinden kart çek, papazdan kaç. |
 | **Satranç** | 2 / 4 | Tam FIDE kuralları, satranç saati, SAN hamle listesi. **2v2 danışma:** takım arkadaşına kare + taş öner (FİKİR VER), yalnızca takımın görür. |
+| **M3RANT** | 5v5 | Taktiksel nişancı: bomba kur/imha et, 8 ajan, 3 harita, 18 silah. Kendi penceresinde açılır. |
 
 ## Nasıl oynanır
 
@@ -165,6 +168,31 @@ yetersiz materyal. Hamle üretici **perft** ile 5 klasik pozisyonda doğrulanır
   rakip takıma giden pakette bu veri hiç yoktur. Bot takım arkadaşı da fikir önerir.
 - Renkler her oyunda değişir; seri (varsayılan 2 oyun) sonunda çok puan toplayan kazanır.
 - Bot alfa-beta + sessiz arama (yalnız alışlar) + taş-kare tablolarıyla oynar.
+
+## M3RANT
+
+M3RANT ayrı bir depodur (Vite + TypeScript, Three.js + Rapier fizik). Derlenmiş
+hâli `vendor/m3rant/` altında bu depoda tutulur, böylece Play Night yan klasöre
+ihtiyaç duymadan derlenebilir. Komşuda `../m3rant` kaynağı varsa
+`scripts/sync-m3rant.js` her derlemede onu yeniden derleyip tazeler; yoksa
+elindeki kopyayla devam eder.
+
+Oyun **kendi penceresinde** açılır ve `app://` ayrıcalıklı şemasından sunulur.
+Bunun üç sebebi var:
+
+- Vite `<script type="module">` üretir; modül betikleri CORS'a tabidir ve
+  `file://` bunu geçemez — doğrudan diskten yüklemek boş pencere verir.
+- Standart şema sayfayı **güvenli bağlam** yapar; WebRTC bunu bekler.
+- **Nişan kilidi** gömülü bir çerçevenin izinlerine takılmaz ve oyunun kendi
+  Three.js sürümü Papaz Kaçtı'nın sahnesiyle çakışmaz.
+
+Sayfaya kendi CSP'si verilir: WASM fiziği için `'wasm-unsafe-eval'`, üretilen
+ses/dokular için `blob:`, PeerJS işaretleşmesi için `wss:`. `eval()` hiçbir
+yerde açık değildir.
+
+İlk açılışta oyuncu adı Play Night profilinden `?name=` ile devredilir; M3RANT
+bunu yalnızca **ilk profili** oluştururken kullanır, sonra oyuncunun kendi
+seçimi geçerlidir.
 
 ## Güncelleme
 
@@ -306,6 +334,8 @@ src/js/papaz/table.js  masa arayüzü, çekme sahnesi, isim/balon katmanı
 src/js/satranc/engine.js satranç kural motoru (0x88, perft'le doğrulanmış, saf)
 src/js/satranc/bot.js  satranç botu (alfa-beta + sessiz arama)
 src/js/satranc/table.js tahta, saatler, hamle listesi, FİKİR VER katmanı
+vendor/m3rant/        M3RANT'ın derlenmiş hâli (app:// ile sunulur)
+scripts/sync-m3rant.js  M3RANT'ı komşu depodan derleyip içeri alır
 src/js/update.js       sürüm kontrolü ve kurulum arayüzü
 src/js/net.js          WebRTC / PeerJS taşıma katmanı
 src/js/room.js         lobi + oyun oturumları (host otoritesi, iki oyunu da taşır)

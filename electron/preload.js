@@ -40,4 +40,8 @@ contextBridge.exposeInMainWorld('pn', {
   dialog: {
     message: (opts) => ipcRenderer.invoke('dialog:message', opts),
   },
+  m3rant: {
+    open: (opts) => ipcRenderer.invoke('m3rant:open', opts),
+    info: () => ipcRenderer.invoke('m3rant:info'),
+  },
 });
